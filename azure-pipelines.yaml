@@ -1,7 +1,7 @@
 trigger:
   branches:
     include:
-    - 'master'
+    - 'main'
   tags:
     include:
     - '*'
@@ -28,7 +28,7 @@ steps:
 
 - task: PublishCodeCoverageResults@1
   inputs:
-    summaryFileLocation: tests/coverage.xml
+    summaryFileLocation: tests/unit/coverage.xml
     codeCoverageTool: cobertura
 
 - task: DotNetCoreCLI@2

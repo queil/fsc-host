@@ -23,7 +23,7 @@ steps:
   displayName: 'Test'
   inputs:
     command: test
-    projects: tests
+    projects: tests/unit
     arguments: '-c Release /p:AltCover=true /p:AltCoverCobertura=coverage.xml /p:AltCoverAssemblyFilter="FSharp.Core||Queil.FSharp.FscHost.Tests"'
 
 - task: PublishCodeCoverageResults@1

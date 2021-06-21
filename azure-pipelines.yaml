@@ -35,7 +35,7 @@ steps:
   displayName: 'Pack'
   inputs:
     command: 'pack'
-    packagesToPack: 'src/*.fsproj'
+    packagesToPack: 'src/**/*.fsproj'
     versioningScheme: 'byEnvVar'
     versionEnvVar: PKGVER
     verbosityPack: 'Normal'

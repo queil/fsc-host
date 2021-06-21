@@ -1,0 +1,46 @@
+trigger:
+  branches:
+    include:
+    - 'master'
+  tags:
+    include:
+    - '*'
+
+variables:
+  pkgver: ${{ variables['Build.SourceBranchName'] }}
+  BuildConfiguration: Release
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+- task: UseDotNet@2
+  inputs:
+    packageType: 'sdk'
+    version: '5.0.x'
+
+- task: DotNetCoreCLI@2
+  displayName: 'Test'
+  inputs:
+    command: test
+    projects: tests
+    arguments: '-c Release /p:AltCover=true /p:AltCoverCobertura=coverage.xml /p:AltCoverAssemblyFilter="FSharp.Core||Queil.FSharp.FscHost.Tests"'
+
+- task: PublishCodeCoverageResults@1
+  inputs:
+    summaryFileLocation: tests/coverage.xml
+    codeCoverageTool: cobertura
+
+- task: DotNetCoreCLI@2
+  displayName: 'Pack'
+  inputs:
+    command: 'pack'
+    packagesToPack: 'src/*.fsproj'
+    versioningScheme: 'byEnvVar'
+    versionEnvVar: PKGVER
+    verbosityPack: 'Normal'
+  condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
+
+- bash: dotnet nuget push -s  https://api.nuget.org/v3/index.json -k $(nuget-api-key) $(Build.ArtifactStagingDirectory)/*.nupkg
+  displayName: 'Push'
+  condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))

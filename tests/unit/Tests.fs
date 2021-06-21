@@ -6,7 +6,7 @@ open Queil.FSharp.FscHost.Types
 
 [<Tests>]
 let tests =
-  testList "samples" [
+  testList "Tests" [
 
     test "Should be able to extract a list" {
       let script = """

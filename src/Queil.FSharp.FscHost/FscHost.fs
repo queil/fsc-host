@@ -29,7 +29,7 @@ module FscHost =
     | ScriptParseError of errors: string seq
     | ScriptCompileError of errors: string seq
     | ScriptModuleNotFound of path: string * moduleName: string
-    | ScriptsPropertyHasInvalidType of path: string * propertyName: string
+    | ScriptsPropertyHasInvalidType of path: string * propertyName: string * actualType: System.Type
     | ScriptsPropertyNotFound of path: string * propertyName: string * foundProperties: string list
     | ExpectedMemberParentTypeNotFound of path: string * memberFqName: string
     | MultipleMemberParentTypeCandidatesFound of path: string * memberFqName: string
@@ -118,7 +118,7 @@ module FscHost =
             try
               Ok (p.GetValue(null) :?> 'a)
             with
-            | :? System.InvalidCastException -> Error (ScriptsPropertyHasInvalidType (filePath, script.MemberFqName))
+            | :? System.InvalidCastException -> Error (ScriptsPropertyHasInvalidType (filePath, script.MemberFqName, p.PropertyType))
 
         | [] -> Error (ExpectedMemberParentTypeNotFound (filePath, script.MemberFqName))
         | _ -> Error (MultipleMemberParentTypeCandidatesFound (filePath, script.MemberFqName))

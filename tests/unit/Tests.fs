@@ -40,4 +40,24 @@ let myFunc = myFuncOrig
 
       "Unexpected call result" |> Expect.equal callResult "Hello TEST 109384!"
     }
+
+    test "Should show the actual property type if it's invalid" {
+      let script = """
+module Test.Script
+
+let myFuncOrig (name:string) = sprintf "Hello %s!" name
+let myFunc = myFuncOrig
+"""
+      let result =
+        {Script = OfString script; MemberFqName = "Test.Script.myFunc"} 
+          |> CompilerHost.getScriptMember<string -> int> false |> Async.RunSynchronously
+      
+      let error = "Expected ScriptsPropertyHasInvalidType error" |> Expect.wantError result
+      
+      match error with
+      | ScriptsPropertyHasInvalidType (_, _, typ) -> 
+        "Unexpected type" |> Expect.equal typ typeof<string -> string>
+      | _ -> failwithf "Unexpected error type"
+
+    }
   ]

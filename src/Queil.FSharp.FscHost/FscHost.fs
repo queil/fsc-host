@@ -16,27 +16,25 @@ module FscHost =
   
   let private (>>=) = bindAsync
 
-  module Types =
-    type Script = | OfFile of path: string | OfString of body: string
-    
-    type ScriptInput = {
-      Script: Script
-      MemberFqName: string
-    }
+  type Script = | OfFile of path: string | OfString of body: string
+  
+  type ScriptInput = {
+    Script: Script
+    MemberFqName: string
+  }
 
-    type Error = 
-    | NuGetRestoreFailed of message: string
-    | ScriptParseError of errors: string seq
-    | ScriptCompileError of errors: string seq
-    | ScriptModuleNotFound of path: string * moduleName: string
-    | ScriptsPropertyHasInvalidType of path: string * propertyName: string * actualType: System.Type
-    | ScriptsPropertyNotFound of path: string * propertyName: string * foundProperties: string list
-    | ExpectedMemberParentTypeNotFound of path: string * memberFqName: string
-    | MultipleMemberParentTypeCandidatesFound of path: string * memberFqName: string
+  type Error = 
+  | NuGetRestoreFailed of message: string
+  | ScriptParseError of errors: string seq
+  | ScriptCompileError of errors: string seq
+  | ScriptModuleNotFound of path: string * moduleName: string
+  | ScriptsPropertyHasInvalidType of path: string * propertyName: string * actualType: System.Type
+  | ScriptsPropertyNotFound of path: string * propertyName: string * foundProperties: string list
+  | ExpectedMemberParentTypeNotFound of path: string * memberFqName: string
+  | MultipleMemberParentTypeCandidatesFound of path: string * memberFqName: string
 
   [<RequireQualifiedAccess>]
   module CompilerHost =
-    open Types
 
     let getScriptMember<'a> (verbose:bool) (script:ScriptInput): Async<Result<'a,Error>> =
       let checker = FSharpChecker.Create()

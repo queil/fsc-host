@@ -7,47 +7,85 @@ open FSharp.Compiler.Text
 
 module FscHost =
 
-  let private bindAsync (ra:Async<Result<'a,'b>>) (b:'a -> Async<Result<'c, 'b>>) =
-    async {
-      match! ra with
-      | Ok a -> return! (b a)
-      | Error x -> return (Error x)
-    }
-  
-  let private (>>=) = bindAsync
-
-  type Script = | OfFile of path: string | OfString of body: string
-  
+  type Script = | File of path: string | Inline of body: string
   type ScriptInput = {
     Script: Script
     MemberFqName: string
   }
 
-  type Error = 
-  | NuGetRestoreFailed of message: string
-  | ScriptParseError of errors: string seq
-  | ScriptCompileError of errors: string seq
-  | ScriptModuleNotFound of path: string * moduleName: string
-  | ScriptsPropertyHasInvalidType of path: string * propertyName: string * actualType: System.Type
-  | ScriptsPropertyNotFound of path: string * propertyName: string * foundProperties: string list
-  | ExpectedMemberParentTypeNotFound of path: string * memberFqName: string
-  | MultipleMemberParentTypeCandidatesFound of path: string * memberFqName: string
+  type Member<'a> = | Path of string
+
+  exception NuGetRestoreFailed of message: string
+  exception ScriptParseError of raises: string seq
+  exception ScriptCompileError of raises: string seq
+  exception ScriptModuleNotFound of path: string * moduleName: string
+  exception ScriptsPropertyHasInvalidType of propertyName: string * actualType: System.Type
+  exception ScriptsPropertyNotFound of propertyName: string * foundProperties: string list
+  exception ExpectedMemberParentTypeNotFound of memberPath: string
+  exception MultipleMemberParentTypeCandidatesFound of memberPath: string
+
+  type ScriptExtractOptions = 
+    {
+      Verbose: bool
+    }
+  with 
+    static member Default = 
+      {
+        Verbose = false
+      }
+
+  [<RequireQualifiedAccess>]
+  module Member =
+    let get<'a> (memberPath:string) (options: ScriptExtractOptions) (assembly:Assembly) =
+
+      let (fqTypeName, memberName) =
+        let splitIndex = memberPath.LastIndexOf(".")
+        memberPath.[0..splitIndex - 1], memberPath.[splitIndex + 1..]
+
+      let candidates = assembly.GetTypes() |> Seq.where (fun t -> t.FullName = fqTypeName) |> Seq.toList
+      if options.Verbose then assembly.GetTypes() |> Seq.iter (fun t ->  printfn "%s" t.FullName)
+
+      match candidates with
+      | [t] ->
+        match t.GetProperty(memberName, BindingFlags.Static ||| BindingFlags.Public) with
+        | null -> raise (ScriptsPropertyNotFound (
+                           memberPath,
+                          t.GetProperties() |> Seq.map (fun p -> p.Name) |> Seq.toList))
+        | p ->
+          try
+            p.GetValue(null) :?> 'a
+          with
+          | :? System.InvalidCastException -> raise (ScriptsPropertyHasInvalidType ( memberPath, p.PropertyType))
+
+      | [] -> raise (ExpectedMemberParentTypeNotFound ( memberPath))
+      | _ -> raise (MultipleMemberParentTypeCandidatesFound ( memberPath))
 
   [<RequireQualifiedAccess>]
   module CompilerHost =
 
-    let getScriptMember<'a> (verbose:bool) (script:ScriptInput): Async<Result<'a,Error>> =
-      let checker = FSharpChecker.Create()
-      let filePath =
-        match script.Script with
-        | OfFile path -> path
-        | OfString body -> 
-          let path = Path.GetTempFileName()
-          let fsxPath = sprintf "%s/%s.fsx" (Path.GetTempPath()) (Path.GetFileNameWithoutExtension path)
-          File.WriteAllText(fsxPath, body)
-          fsxPath
+    let private (>>=) (a) (func) = (a,func) |> async.Bind
 
-      let compileScripts (nugetResolutions:string seq) =
+    module private Internals =
+      let checker = FSharpChecker.Create()
+    
+      let ensureScriptFile (script:Script) =
+        let getScriptFilePath =
+          function
+          | File path -> path
+          | Inline _ -> 
+            let path = Path.GetTempFileName()
+            sprintf "%s/%s.fsx" (Path.GetTempPath()) (Path.GetFileNameWithoutExtension path)
+
+        let createInlineScriptFile (filePath:string) =
+          function
+          | Inline body -> File.WriteAllText(filePath, body)
+          | _ -> ()
+
+        let path = script |> getScriptFilePath
+        script |> createInlineScriptFile path
+        path
+    
+      let compileScript (filePath:string) (options: ScriptExtractOptions) (nugetResolutions:string seq) =
         async {
           
           let refs = nugetResolutions |> Seq.map (sprintf "-r:%s")
@@ -62,18 +100,18 @@ module FscHost =
             "--langversion:preview"
           |]
 
-          if verbose then printfn "Compiler args: %s" (compilerArgs |> String.concat " ")
+          if options.Verbose then printfn "Compiler args: %s" (compilerArgs |> String.concat " ")
 
           let! errors, _, maybeAssembly =
             checker.CompileToDynamicAssembly(compilerArgs, None)
           
           return
             match maybeAssembly with
-            | Some x -> Ok x
-            | None -> Error (ScriptCompileError (errors |> Seq.map (fun d -> d.ToString())))
+            | Some x -> x
+            | None -> raise (ScriptCompileError (errors |> Seq.map (fun d -> d.ToString())))
         }
 
-      let resolveNugets () =
+      let resolveNugets (filePath:string) =
         async {
           let source = File.ReadAllText filePath |> SourceText.ofString
           let! projOptions, errors = checker.GetProjectOptionsFromScript(filePath, source)
@@ -91,39 +129,45 @@ module FscHost =
                     | _ -> None)
                   |> Seq.groupBy id
                   |> Seq.map (fun (path, _) -> path)
-                  |> Ok
-              | _ -> Error (ScriptParseError (projResults.Errors |> Seq.map string) )
-          | _ -> return Error (ScriptParseError (errors |> Seq.map string) )
+              | _ -> raise (ScriptParseError (projResults.Errors |> Seq.map string) )
+          | _ -> return raise (ScriptParseError (errors |> Seq.map string) )
         }
+    
+    open Internals
 
-      let extract (assembly:Assembly): Result<'a,Error> =
-      
-        let name = script.MemberFqName
-        let (fqTypeName, memberName) =
-          let splitIndex = name.LastIndexOf(".")
-          name.[0..splitIndex - 1], name.[splitIndex + 1..]
+    let getAssembly (options: ScriptExtractOptions) (script:Script) : Async<Assembly> =
+      let filePath = script |> ensureScriptFile
+      resolveNugets filePath >>= (compileScript filePath options)
 
-        let candidates = assembly.GetTypes() |> Seq.where (fun t -> t.FullName = fqTypeName) |> Seq.toList
-        if verbose then assembly.GetTypes() |> Seq.iter (fun t ->  printfn "%s" t.FullName)
-
-        match candidates with
-        | [t] ->
-          match t.GetProperty(memberName, BindingFlags.Static ||| BindingFlags.Public) with
-          | null -> Error (ScriptsPropertyNotFound (
-                            filePath, script.MemberFqName,
-                            t.GetProperties() |> Seq.map (fun p -> p.Name) |> Seq.toList))
-          | p ->
-            try
-              Ok (p.GetValue(null) :?> 'a)
-            with
-            | :? System.InvalidCastException -> Error (ScriptsPropertyHasInvalidType (filePath, script.MemberFqName, p.PropertyType))
-
-        | [] -> Error (ExpectedMemberParentTypeNotFound (filePath, script.MemberFqName))
-        | _ -> Error (MultipleMemberParentTypeCandidatesFound (filePath, script.MemberFqName))
-      
+    let getScriptMember<'a> (Path pathA: Member<'a>) (options: ScriptExtractOptions) (script:Script) : Async<'a> =
       async {
-        return! 
-          resolveNugets ()
-          >>= compileScripts
-          >>= (extract >> async.Return)
+        let! assembly = script |> getAssembly options
+        return assembly |> Member.get pathA options
+      }
+
+    let getScriptMembers2<'a,'b> (Path pathA: Member<'a>) (Path pathB: Member<'b>) (options: ScriptExtractOptions) (script:Script) : Async<'a * 'b> =
+      async {
+        let! assembly = script |> getAssembly options
+        return
+          assembly |> Member.get<'a> pathA options,
+          assembly |> Member.get<'b> pathB options
+      }
+
+    let getScriptMembers3<'a,'b,'c> (Path pathA: Member<'a>) (Path pathB: Member<'b>) (Path pathC: Member<'c>) (options: ScriptExtractOptions) (script:Script) : Async<'a * 'b * 'c> =
+      async {
+        let! assembly = script |> getAssembly options
+        return
+          assembly |> Member.get<'a> pathA options,
+          assembly |> Member.get<'b> pathB options,
+          assembly |> Member.get<'c> pathC options
+      }
+
+    let getScriptMembers4<'a,'b,'c,'d> (Path pathA: Member<'a>) (Path pathB: Member<'b>) (Path pathC: Member<'c>)  (Path pathD: Member<'d>) (options: ScriptExtractOptions) (script:Script) : Async<'a * 'b * 'c * 'd> =
+      async {
+        let! assembly = script |> getAssembly options
+        return
+          assembly |> Member.get<'a> pathA options,
+          assembly |> Member.get<'b> pathB options,
+          assembly |> Member.get<'c> pathC options,
+          assembly |> Member.get<'d> pathD options
       }

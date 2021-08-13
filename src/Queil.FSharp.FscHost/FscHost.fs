@@ -1,6 +1,6 @@
 ﻿namespace Queil.FSharp
 
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.CodeAnalysis
 open System.IO
 open System.Reflection
 open FSharp.Compiler.Text
@@ -137,7 +137,7 @@ module FscHost =
                     | _ -> None)
                   |> Seq.groupBy id
                   |> Seq.map (fun (path, _) -> path)
-              | _ -> raise (ScriptParseError (projResults.Errors |> Seq.map string) )
+              | _ -> raise (ScriptParseError (projResults.Diagnostics |> Seq.map string) )
           | _ -> return raise (ScriptParseError (errors |> Seq.map string) )
         }
     

@@ -2,7 +2,13 @@ module Queil.FSharp.FscHost.Tests
 
 open Expecto
 open Queil.FSharp.FscHost
-open System.Collections.Generic
+
+let invoke<'a> (func:unit -> 'a) =
+  try
+    func ()
+  with 
+  | ScriptCompileError errors -> 
+    failwithf "%s" (errors |> String.concat "\n")
 
 [<Tests>]
 let tests =
@@ -15,10 +21,10 @@ namespace Test.Script
 module Countries =
   let myList = ["UK"; "Poland"; "France"]
 """
-      let result =
+      let result = invoke <| fun () ->
         Inline script 
           |> CompilerHost.getScriptProperty (Property<string list>.Path "Test.Script.Countries.myList") Options.Default |> Async.RunSynchronously
-
+      
       "Lists should be equal" |> Expect.equal result ["UK"; "Poland"; "France"]
     }
 
@@ -29,7 +35,7 @@ module Test.Script
 let myFuncOrig (name:string) = sprintf "Hello %s!" name
 let myFunc = myFuncOrig
 """
-      let myFunc =
+      let myFunc = invoke <| fun () ->
         Inline script
           |> CompilerHost.getScriptProperty (Property<string ->string>.Path "Test.Script.myFunc") Options.Default |> Async.RunSynchronously
       
@@ -48,6 +54,7 @@ let myFunc = myFuncOrig
 """
       
       Expect.throwsC (fun () ->
+              invoke <| fun () ->
                 Inline script
                 |> CompilerHost.getScriptProperty (Property<string -> int>.Path "Test.Script.myFunc" ) Options.Default
                 |> Async.RunSynchronously
@@ -68,7 +75,7 @@ module Countries =
   let myList = ["UK"; "Poland"; "France"]
   let myCount = myList |> List.length
 """
-      let result =
+      let result = invoke <| fun () ->
         Inline script |>
           CompilerHost.getScriptProperties2
             (Property<string list>.Path "Test.Script.Countries.myList")
@@ -89,7 +96,7 @@ module Countries =
   let myFloat = 44.44
   
 """
-      let result =
+      let result = invoke <| fun () ->
         Inline script |>
           CompilerHost.getScriptProperties3
             (Property<string list>.Path "Test.Script.Countries.myList")
@@ -112,7 +119,7 @@ module Countries =
   let myMap = [("s", 1)] |> Map.ofList
   
 """
-      let result =
+      let result = invoke <| fun () ->
         Inline script |>
           CompilerHost.getScriptProperties4
             (Property<string list>.Path "Test.Script.Countries.myList")

@@ -1,9 +1,12 @@
 ﻿namespace Queil.FSharp
 
 open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Text
+open System
 open System.IO
 open System.Reflection
-open FSharp.Compiler.Text
+open System.Text
+open System.Security.Cryptography
 
 module FscHost =
 
@@ -14,36 +17,40 @@ module FscHost =
     Target: string
     TargetProfile: string
     LangVersion: string option
-    Args: string -> string list -> CompilerOptions -> string array
+    Args: string -> string list -> CompilerOptions -> string list
     IncludeHostEntryAssembly: bool
   }
   with
     static member Default =
      {
        LangVersion = None
-       Target = "module"
+       Target = "library"
        TargetProfile = "netcore"
        IncludeHostEntryAssembly = true
-       Args = fun scriptPath refs opts -> [|
+       Args = fun scriptPath refs opts -> [
         "-a"; scriptPath
         sprintf "--targetprofile:%s" opts.TargetProfile
         sprintf "--target:%s" opts.Target
         yield! refs
         match opts.IncludeHostEntryAssembly with | true -> sprintf "-r:%s" (Assembly.GetEntryAssembly().GetName().Name) |_ -> ()
         match opts.LangVersion with | Some ver -> sprintf "--langversion:%s" ver | _ -> ()
-      |]
+      ]
      }
 
   type Options = 
     {
       Compiler: CompilerOptions
       Verbose: bool
+      UseCache: bool
+      CachePath: string
     }
   with 
     static member Default =
       {
         Compiler = CompilerOptions.Default
         Verbose = false
+        UseCache = false
+        CachePath = ".fsc-host/cache"
       }
 
   exception NuGetRestoreFailed of message: string
@@ -101,22 +108,53 @@ module FscHost =
         script |> createInlineScriptFile path
         path
     
-      let compileScript (filePath:string) (options: Options) (nugetResolutions:string seq) =
+      let compileScript (filePath:string) (options: Options) (nugetResolutions:string seq) : Async<Assembly> =
         async {
-          
-          let refs = nugetResolutions |> Seq.map (sprintf "-r:%s") |> Seq.toList
-          nugetResolutions |> Seq.iter (Assembly.LoadFrom >> ignore)
-          let compilerArgs = options.Compiler.Args filePath refs options.Compiler
-          
-          if options.Verbose then printfn "Compiler args: %s" (compilerArgs |> String.concat " ")
 
-          let! errors, _, maybeAssembly =
-            checker.CompileToDynamicAssembly(compilerArgs, None)
-          
-          return
-            match maybeAssembly with
-            | Some x -> x
-            | None -> raise (ScriptCompileError (errors |> Seq.map (fun d -> d.ToString())))
+          let maybeCachedFileName =
+            if options.UseCache then
+              use sha256 = SHA256.Create()
+              let checksum = File.ReadAllText filePath |> Encoding.UTF8.GetBytes |> sha256.ComputeHash |> BitConverter.ToString |> fun s -> s.Replace("-", "")
+              Some (options.CachePath.TrimEnd('\\','/') + "/" + $"{checksum}.dll" |> Path.GetFullPath)
+            else None
+
+          match maybeCachedFileName with
+          | Some path when File.Exists path ->
+            if options.Verbose then printfn "Loading from cache: %s" path
+            return (Assembly.LoadFile path)
+          | maybePath ->
+            let refs = nugetResolutions |> Seq.map (sprintf "-r:%s") |> Seq.toList
+            nugetResolutions |> Seq.iter (Assembly.LoadFrom >> ignore)
+
+            let compilerArgs =
+              [
+                yield! options.Compiler.Args filePath refs options.Compiler
+                match maybePath with
+                | Some path -> $"--out:{path}"
+                | None -> ()
+              ]
+
+            if options.Verbose then printfn "Compiler args: %s" (compilerArgs |> String.concat " ")
+            
+            let getAssembly () =
+              async {
+                  match maybePath with
+                  | Some path -> 
+                    let! errors, _ = checker.Compile(compilerArgs |> List.toArray, "None")
+                    let assembly =
+                      match errors with
+                      | [||] -> Assembly.LoadFrom path
+                      | _ -> raise (ScriptCompileError (errors |> Seq.map string))
+                    return assembly
+                  | None ->
+                    let! errors, _, maybeAssembly = checker.CompileToDynamicAssembly(compilerArgs |> List.toArray, None)
+                    let assembly =
+                      match maybeAssembly with
+                      | Some assembly -> assembly
+                      | _ -> raise (ScriptCompileError (errors |> Seq.map string))
+                    return assembly
+              }
+            return! getAssembly ()
         }
 
       let resolveNugets (filePath:string) =

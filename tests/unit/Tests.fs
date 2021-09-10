@@ -3,6 +3,12 @@ module Queil.FSharp.FscHost.Tests
 open Expecto
 open Queil.FSharp.FscHost
 
+let options = 
+  { Options.Default with
+      UseCache = true
+      Verbose = true
+  }
+
 let invoke<'a> (func:unit -> 'a) =
   try
     func ()
@@ -23,7 +29,7 @@ module Countries =
 """
       let result = invoke <| fun () ->
         Inline script 
-          |> CompilerHost.getScriptProperty (Property<string list>.Path "Test.Script.Countries.myList") Options.Default |> Async.RunSynchronously
+          |> CompilerHost.getScriptProperty (Property<string list>.Path "Test.Script.Countries.myList") options |> Async.RunSynchronously
       
       "Lists should be equal" |> Expect.equal result ["UK"; "Poland"; "France"]
     }
@@ -37,10 +43,9 @@ let myFunc = myFuncOrig
 """
       let myFunc = invoke <| fun () ->
         Inline script
-          |> CompilerHost.getScriptProperty (Property<string ->string>.Path "Test.Script.myFunc") Options.Default |> Async.RunSynchronously
+          |> CompilerHost.getScriptProperty (Property<string ->string>.Path "Test.Script.myFunc") options |> Async.RunSynchronously
       
       let callResult = myFunc "TEST 109384"
-
 
       "Unexpected call result" |> Expect.equal callResult "Hello TEST 109384!"
     }
@@ -56,7 +61,7 @@ let myFunc = myFuncOrig
       Expect.throwsC (fun () ->
               invoke <| fun () ->
                 Inline script
-                |> CompilerHost.getScriptProperty (Property<string -> int>.Path "Test.Script.myFunc" ) Options.Default
+                |> CompilerHost.getScriptProperty (Property<string -> int>.Path "Test.Script.myFunc" ) options
                 |> Async.RunSynchronously
                 |> ignore)
                 
@@ -81,7 +86,7 @@ module Countries =
             (Property<string list>.Path "Test.Script.Countries.myList")
             (Property<int>.Path "Test.Script.Countries.myCount")
             
-            Options.Default |> Async.RunSynchronously
+            options |> Async.RunSynchronously
 
       "Lists should be equal" |> Expect.equal result (["UK"; "Poland"; "France"], 3)
     }
@@ -103,7 +108,7 @@ module Countries =
             (Property<int>.Path "Test.Script.Countries.myCount")
             (Property<float>.Path "Test.Script.Countries.myFloat")
             
-            Options.Default |> Async.RunSynchronously
+            options |> Async.RunSynchronously
 
       "Lists should be equal" |> Expect.equal result (["UK"; "Poland"; "France"], 3, 44.44 )
     }
@@ -127,7 +132,7 @@ module Countries =
             (Property<float>.Path "Test.Script.Countries.myFloat")
             (Property<Map<string,int>>.Path "Test.Script.Countries.myMap")
             
-            Options.Default |> Async.RunSynchronously
+            options |> Async.RunSynchronously
 
       "Lists should be equal" |> Expect.equal result (["UK"; "Poland"; "France"], 3, 44.44,  [("s", 1)] |> Map.ofList )
     }

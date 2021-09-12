@@ -97,7 +97,7 @@ module FscHost =
           | File path -> path
           | Inline _ -> 
             let path = Path.GetTempFileName()
-            sprintf "%s/%s.fsx" (Path.GetTempPath()) (Path.GetFileNameWithoutExtension path)
+            sprintf "%s%s.fsx" (Path.GetTempPath()) (Path.GetFileNameWithoutExtension path)
 
         let createInlineScriptFile (filePath:string) =
           function
@@ -121,7 +121,7 @@ module FscHost =
           match maybeCachedFileName with
           | Some path when File.Exists path ->
             if options.Verbose then printfn "Loading from cache: %s" path
-            return (Assembly.LoadFile path)
+            return path |> Path.GetFullPath |> Assembly.LoadFile
           | maybePath ->
             let refs = nugetResolutions |> Seq.map (sprintf "-r:%s") |> Seq.toList
             nugetResolutions |> Seq.iter (Assembly.LoadFrom >> ignore)
@@ -143,7 +143,7 @@ module FscHost =
                     let! errors, _ = checker.Compile(compilerArgs |> List.toArray, "None")
                     let assembly =
                       match errors with
-                      | [||] -> Assembly.LoadFrom path
+                      | [||] -> path |> Path.GetFullPath |> Assembly.LoadFile
                       | _ -> raise (ScriptCompileError (errors |> Seq.map string))
                     return assembly
                   | None ->

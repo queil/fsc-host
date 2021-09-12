@@ -115,7 +115,7 @@ module FscHost =
             if options.UseCache then
               use sha256 = SHA256.Create()
               let checksum = File.ReadAllText filePath |> Encoding.UTF8.GetBytes |> sha256.ComputeHash |> BitConverter.ToString |> fun s -> s.Replace("-", "")
-              Some (options.CachePath.TrimEnd('\\','/') + "/" + $"{checksum}.dll" |> Path.GetFullPath)
+              Some (options.CachePath.TrimEnd('\\','/') + "/" + $"{checksum}.dll")
             else None
 
           match maybeCachedFileName with

@@ -108,7 +108,7 @@ module FscHost =
         script |> createInlineScriptFile path
         path
     
-      let compileScript (filePath:string) (options: Options) (nugetResolutions:string seq) : Async<Assembly> =
+      let compileScript (filePath:string) (options: Options) (resolveNugets:string -> Async<string seq>) : Async<Assembly> =
         async {
 
           let maybeCachedFileName =
@@ -123,8 +123,9 @@ module FscHost =
             if options.Verbose then printfn "Loading from cache: %s" path
             return path |> Path.GetFullPath |> Assembly.LoadFile
           | maybePath ->
-            let refs = nugetResolutions |> Seq.map (sprintf "-r:%s") |> Seq.toList
-            nugetResolutions |> Seq.iter (Assembly.LoadFrom >> ignore)
+            let! nugets = resolveNugets filePath
+            let refs = nugets |> Seq.map (sprintf "-r:%s") |> Seq.toList
+            nugets |> Seq.iter (Assembly.LoadFrom >> ignore)
 
             let compilerArgs =
               [
@@ -184,8 +185,7 @@ module FscHost =
     let getAssembly (options: Options) (script:Script) : Async<Assembly> =
       let filePath = script |> ensureScriptFile
       async {
-        let! nugets = resolveNugets filePath 
-        return! nugets |> compileScript filePath options
+        return! compileScript filePath options resolveNugets
       }
 
     let getScriptProperty<'a> (Path pathA: Property<'a>) (options: Options) (script:Script) : Async<'a> =

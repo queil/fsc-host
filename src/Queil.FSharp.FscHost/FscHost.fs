@@ -64,14 +64,13 @@ module FscHost =
 
   [<RequireQualifiedAccess>]
   module Property =
-    let get<'a> (memberPath:string) (options: Options) (assembly:Assembly) =
+    let get<'a> (memberPath:string) (assembly:Assembly) =
 
       let (fqTypeName, memberName) =
         let splitIndex = memberPath.LastIndexOf(".")
         memberPath.[0..splitIndex - 1], memberPath.[splitIndex + 1..]
 
       let candidates = assembly.GetTypes() |> Seq.where (fun t -> t.FullName = fqTypeName) |> Seq.toList
-      if options.Verbose then assembly.GetTypes() |> Seq.iter (fun t ->  printfn "%s" t.FullName)
 
       match candidates with
       | [t] ->
@@ -155,7 +154,11 @@ module FscHost =
                       | _ -> raise (ScriptCompileError (errors |> Seq.map string))
                     return assembly
               }
-            return! getAssembly ()
+            let! assembly = getAssembly ()
+
+            if options.Verbose then assembly.GetTypes() |> Seq.iter (fun t ->  printfn "%s" t.FullName)
+            
+            return assembly
         }
 
       let resolveNugets (filePath:string) =
@@ -191,32 +194,32 @@ module FscHost =
     let getScriptProperty<'a> (Path pathA: Property<'a>) (options: Options) (script:Script) : Async<'a> =
       async {
         let! assembly = script |> getAssembly options
-        return assembly |> Property.get pathA options
+        return assembly |> Property.get pathA
       }
 
     let getScriptProperties2<'a,'b> (Path pathA: Property<'a>) (Path pathB: Property<'b>) (options: Options) (script:Script) : Async<'a * 'b> =
       async {
         let! assembly = script |> getAssembly options
         return
-          assembly |> Property.get<'a> pathA options,
-          assembly |> Property.get<'b> pathB options
+          assembly |> Property.get<'a> pathA,
+          assembly |> Property.get<'b> pathB
       }
 
     let getScriptProperties3<'a,'b,'c> (Path pathA: Property<'a>) (Path pathB: Property<'b>) (Path pathC: Property<'c>) (options: Options) (script:Script) : Async<'a * 'b * 'c> =
       async {
         let! assembly = script |> getAssembly options
         return
-          assembly |> Property.get<'a> pathA options,
-          assembly |> Property.get<'b> pathB options,
-          assembly |> Property.get<'c> pathC options
+          assembly |> Property.get<'a> pathA,
+          assembly |> Property.get<'b> pathB,
+          assembly |> Property.get<'c> pathC
       }
 
     let getScriptProperties4<'a,'b,'c,'d> (Path pathA: Property<'a>) (Path pathB: Property<'b>) (Path pathC: Property<'c>)  (Path pathD: Property<'d>) (options: Options) (script:Script) : Async<'a * 'b * 'c * 'd> =
       async {
         let! assembly = script |> getAssembly options
         return
-          assembly |> Property.get<'a> pathA options,
-          assembly |> Property.get<'b> pathB options,
-          assembly |> Property.get<'c> pathC options,
-          assembly |> Property.get<'d> pathD options
+          assembly |> Property.get<'a> pathA,
+          assembly |> Property.get<'b> pathB,
+          assembly |> Property.get<'c> pathC,
+          assembly |> Property.get<'d> pathD
       }

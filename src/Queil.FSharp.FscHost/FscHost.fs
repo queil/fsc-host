@@ -1,6 +1,7 @@
 ﻿namespace Queil.FSharp
 
 open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.Text
 open System
 open System.IO
@@ -17,6 +18,7 @@ module FscHost =
     Target: string
     TargetProfile: string
     LangVersion: string option
+    WarningLevel: int
     Args: string -> string list -> CompilerOptions -> string list
     IncludeHostEntryAssembly: bool
   }
@@ -27,10 +29,12 @@ module FscHost =
        Target = "library"
        TargetProfile = "netcore"
        IncludeHostEntryAssembly = true
+       WarningLevel = 3
        Args = fun scriptPath refs opts -> [
         "-a"; scriptPath
         sprintf "--targetprofile:%s" opts.TargetProfile
         sprintf "--target:%s" opts.Target
+        sprintf "--warn:%i" opts.WarningLevel
         yield! refs
         match opts.IncludeHostEntryAssembly with | true -> sprintf "-r:%s" (Assembly.GetEntryAssembly().GetName().Name) |_ -> ()
         match opts.LangVersion with | Some ver -> sprintf "--langversion:%s" ver | _ -> ()
@@ -80,7 +84,7 @@ module FscHost =
           try
             p.GetValue(null) :?> 'a
           with
-          | :? System.InvalidCastException -> raise (ScriptsPropertyHasInvalidType ( memberPath, p.PropertyType))
+          | :? InvalidCastException -> raise (ScriptsPropertyHasInvalidType ( memberPath, p.PropertyType))
       | [] -> raise (ExpectedMemberParentTypeNotFound ( memberPath))
       | _ -> raise (MultipleMemberParentTypeCandidatesFound ( memberPath))
 
@@ -136,23 +140,23 @@ module FscHost =
 
             if options.Verbose then printfn "Compiler args: %s" (compilerArgs |> String.concat " ")
             
+            let getAssemblyOrThrow (errors: FSharpDiagnostic array) (getAssembly: unit -> Assembly) =
+              match errors with
+              | xs when xs |> Array.exists (fun x -> x.Severity = FSharpDiagnosticSeverity.Error) ->
+                raise (ScriptCompileError (errors |> Seq.map string))
+              | xs ->
+                xs |> Seq.iter (string >> printfn "%s")
+                getAssembly ()
+            
             let getAssembly () =
               async {
                   match maybePath with
                   | Some path -> 
                     let! errors, _ = checker.Compile(compilerArgs |> List.toArray, "None")
-                    let assembly =
-                      match errors with
-                      | [||] -> path |> Path.GetFullPath |> Assembly.LoadFile
-                      | _ -> raise (ScriptCompileError (errors |> Seq.map string))
-                    return assembly
+                    return getAssemblyOrThrow errors (fun () -> path |> Path.GetFullPath |> Assembly.LoadFile)
                   | None ->
                     let! errors, _, maybeAssembly = checker.CompileToDynamicAssembly(compilerArgs |> List.toArray, None)
-                    let assembly =
-                      match maybeAssembly with
-                      | Some assembly -> assembly
-                      | _ -> raise (ScriptCompileError (errors |> Seq.map string))
-                    return assembly
+                    return getAssemblyOrThrow errors (fun () -> maybeAssembly.Value)
               }
             let! assembly = getAssembly ()
 

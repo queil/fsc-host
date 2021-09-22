@@ -136,4 +136,23 @@ module Countries =
 
       "Lists should be equal" |> Expect.equal result (["UK"; "Poland"; "France"], 3, 44.44,  [("s", 1)] |> Map.ofList )
     }
+
+    test "Should not fail on warnings" {
+      let script =
+        """System.DateTime.Now.ToString() |> printfn "%s"
+"""
+      invoke <| fun () ->
+        Inline script |>
+          CompilerHost.getAssembly options |> Async.RunSynchronously |> ignore
+
+    }
+    test "Should fail on errors" {
+      let script =
+        """let 9999
+"""
+      "Should throw compilation error" |> Expect.throws (fun () ->
+        invoke <| fun () ->
+          Inline script |>
+            CompilerHost.getAssembly options |> Async.RunSynchronously |> ignore)
+    }
   ]

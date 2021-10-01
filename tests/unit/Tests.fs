@@ -6,7 +6,7 @@ open Queil.FSharp.FscHost
 let options = 
   { Options.Default with
       UseCache = true
-      Verbose = true
+      Logger = printfn "%s"
   }
 
 let invoke<'a> (func:unit -> 'a) =
@@ -144,8 +144,8 @@ module Countries =
       invoke <| fun () ->
         Inline script |>
           CompilerHost.getAssembly options |> Async.RunSynchronously |> ignore
-
     }
+
     test "Should fail on errors" {
       let script =
         """let 9999
@@ -154,5 +154,21 @@ module Countries =
         invoke <| fun () ->
           Inline script |>
             CompilerHost.getAssembly options |> Async.RunSynchronously |> ignore)
+    }
+
+    test "Should load assembly" {
+      let script = """
+module Test.Script
+
+#r "nuget: JsonPatch.Net, 1.1.0"
+
+let myFunc () = Json.Pointer.JsonPointer.Parse("/some").ToString()
+let export = myFunc
+"""
+      invoke <| fun () ->
+        let myFunc =
+          Inline script |>
+            CompilerHost.getAssembly options |> Async.RunSynchronously |> Property.get<unit -> string> "Test.Script.export"
+        "Value should match" |> Expect.equal (myFunc ()) "/some"
     }
   ]

@@ -13,48 +13,48 @@ module FscHost =
 
   type Script = | File of path: string | Inline of body: string
   type Property<'a> = | Path of string
-
   type CompilerOptions = {
+    Args: string -> string list -> CompilerOptions -> string list  
+    IncludeHostEntryAssembly: bool
+    LangVersion: string option
     Target: string
     TargetProfile: string
-    LangVersion: string option
     WarningLevel: int
-    Args: string -> string list -> CompilerOptions -> string list
-    IncludeHostEntryAssembly: bool
   }
   with
     static member Default =
      {
+       Args = fun scriptPath refs opts ->
+         [
+          "-a"; scriptPath
+          sprintf "--targetprofile:%s" opts.TargetProfile
+          sprintf "--target:%s" opts.Target
+          sprintf "--warn:%i" opts.WarningLevel
+          yield! refs
+          match opts.IncludeHostEntryAssembly with | true -> sprintf "-r:%s" (Assembly.GetEntryAssembly().GetName().Name) |_ -> ()
+          match opts.LangVersion with | Some ver -> sprintf "--langversion:%s" ver | _ -> ()
+         ]
+       IncludeHostEntryAssembly = true
        LangVersion = None
        Target = "library"
        TargetProfile = "netcore"
-       IncludeHostEntryAssembly = true
        WarningLevel = 3
-       Args = fun scriptPath refs opts -> [
-        "-a"; scriptPath
-        sprintf "--targetprofile:%s" opts.TargetProfile
-        sprintf "--target:%s" opts.Target
-        sprintf "--warn:%i" opts.WarningLevel
-        yield! refs
-        match opts.IncludeHostEntryAssembly with | true -> sprintf "-r:%s" (Assembly.GetEntryAssembly().GetName().Name) |_ -> ()
-        match opts.LangVersion with | Some ver -> sprintf "--langversion:%s" ver | _ -> ()
-      ]
      }
 
   type Options = 
     {
       Compiler: CompilerOptions
-      Verbose: bool
       UseCache: bool
       CachePath: string
+      Logger: string -> unit
     }
   with 
     static member Default =
       {
         Compiler = CompilerOptions.Default
-        Verbose = false
         UseCache = false
         CachePath = ".fsc-host/cache"
+        Logger = ignore
       }
 
   exception NuGetRestoreFailed of message: string
@@ -90,7 +90,6 @@ module FscHost =
 
   [<RequireQualifiedAccess>]
   module CompilerHost =
-
     module private Internals =
       let checker = FSharpChecker.Create()
     
@@ -110,9 +109,20 @@ module FscHost =
         let path = script |> getScriptFilePath
         script |> createInlineScriptFile path
         path
-    
+      
       let compileScript (filePath:string) (options: Options) (resolveNugets:string -> Async<string seq>) : Async<Assembly> =
+
+        let log = options.Logger
+        let loadNuGetAssemblies nugetPaths =
+          nugetPaths |> Seq.iter (fun path -> 
+            sprintf "Loading assembly: %s" path |> log
+            path |> Assembly.LoadFrom |> ignore
+          )
+
         async {
+
+          if options.UseCache then
+            Directory.CreateDirectory options.CachePath |> ignore
 
           let maybeCachedFileName =
             if options.UseCache then
@@ -120,15 +130,24 @@ module FscHost =
               let checksum = File.ReadAllText filePath |> Encoding.UTF8.GetBytes |> sha256.ComputeHash |> BitConverter.ToString |> fun s -> s.Replace("-", "")
               Some (options.CachePath.TrimEnd('\\','/') + "/" + $"{checksum}.dll")
             else None
-
+          
           match maybeCachedFileName with
           | Some path when File.Exists path ->
-            if options.Verbose then printfn "Loading from cache: %s" path
+            sprintf "Found and loading cached assembly: %s" path |> log
+            let nuGetFile = Path.ChangeExtension (path, "nuget")
+            sprintf "Loading cached NuGet resolutions file: %s" nuGetFile |> log
+            nuGetFile |> File.ReadAllLines |> loadNuGetAssemblies
             return path |> Path.GetFullPath |> Assembly.LoadFile
+            
           | maybePath ->
-            let! nugets = resolveNugets filePath
-            let refs = nugets |> Seq.map (sprintf "-r:%s") |> Seq.toList
-            nugets |> Seq.iter (Assembly.LoadFrom >> ignore)
+            let! nuGetsPaths = resolveNugets filePath
+            let refs = nuGetsPaths |> Seq.map (sprintf "-r:%s") |> Seq.toList
+            nuGetsPaths |> loadNuGetAssemblies
+            maybePath |> Option.iter (fun path -> 
+              let nuGetFile = Path.ChangeExtension (path, "nuget")
+              sprintf "Caching resolved NuGets to: %s" nuGetFile |> log
+              (nuGetFile, nuGetsPaths) |> File.WriteAllLines
+            )
 
             let compilerArgs =
               [
@@ -138,14 +157,14 @@ module FscHost =
                 | None -> ()
               ]
 
-            if options.Verbose then printfn "Compiler args: %s" (compilerArgs |> String.concat " ")
+            sprintf "Compiling with args: %s" (compilerArgs |> String.concat " ") |> log
             
             let getAssemblyOrThrow (errors: FSharpDiagnostic array) (getAssembly: unit -> Assembly) =
               match errors with
               | xs when xs |> Array.exists (fun x -> x.Severity = FSharpDiagnosticSeverity.Error) ->
                 raise (ScriptCompileError (errors |> Seq.map string))
               | xs ->
-                xs |> Seq.iter (string >> printfn "%s")
+                xs |> Seq.iter (string >> log)
                 getAssembly ()
             
             let getAssembly () =
@@ -160,7 +179,7 @@ module FscHost =
               }
             let! assembly = getAssembly ()
 
-            if options.Verbose then assembly.GetTypes() |> Seq.iter (fun t ->  printfn "%s" t.FullName)
+            assembly.GetTypes() |> Seq.iter (fun t -> log t.FullName)
             
             return assembly
         }

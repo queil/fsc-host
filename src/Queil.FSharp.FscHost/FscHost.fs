@@ -14,12 +14,13 @@ module FscHost =
   type Script = | File of path: string | Inline of body: string
   type Property<'a> = | Path of string
   type CompilerOptions = {
-    Args: string -> string list -> CompilerOptions -> string list  
+    Args: string -> string list -> CompilerOptions -> string list
     IncludeHostEntryAssembly: bool
     LangVersion: string option
     Target: string
     TargetProfile: string
     WarningLevel: int
+    Symbols: string list
   }
   with
     static member Default =
@@ -33,12 +34,15 @@ module FscHost =
           yield! refs
           match opts.IncludeHostEntryAssembly with | true -> sprintf "-r:%s" (Assembly.GetEntryAssembly().GetName().Name) |_ -> ()
           match opts.LangVersion with | Some ver -> sprintf "--langversion:%s" ver | _ -> ()
+          for s in opts.Symbols do
+            sprintf "--define:%s" s
          ]
        IncludeHostEntryAssembly = true
        LangVersion = None
        Target = "library"
        TargetProfile = "netcore"
        WarningLevel = 3
+       Symbols = []
      }
 
   type Options = 

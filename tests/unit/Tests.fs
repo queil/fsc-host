@@ -171,4 +171,20 @@ let export = myFunc
             CompilerHost.getAssembly options |> Async.RunSynchronously |> Property.get<unit -> string> "Test.Script.export"
         "Value should match" |> Expect.equal (myFunc ()) "/some"
     }
+
+    test "Should pass defined symbols" {
+      let script = """module Test.Script
+#if MY_SYMBOL
+let export = "WORKED"
+#else
+let export = "NOT_WORKED"
+#endif
+      """
+      let opts = { options with Compiler = { options.Compiler with Symbols = ["MY_SYMBOL"]}}
+      invoke <| fun () ->
+        let value =
+          Inline script |>
+            CompilerHost.getAssembly opts |> Async.RunSynchronously |> Property.get<string> "Test.Script.export"
+        "Value should match" |> Expect.equal value "WORKED"
+    }
   ]

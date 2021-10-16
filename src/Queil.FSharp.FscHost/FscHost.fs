@@ -218,13 +218,13 @@ module FscHost =
         return! compileScript filePath options resolveNugets
       }
 
-    let getScriptProperty<'a> (Path pathA: Property<'a>) (options: Options) (script:Script) : Async<'a> =
+    let getScriptProperty<'a> (options: Options) (Path pathA: Property<'a>) (script:Script) : Async<'a> =
       async {
         let! assembly = script |> getAssembly options
         return assembly |> Property.get pathA
       }
 
-    let getScriptProperties2<'a,'b> (Path pathA: Property<'a>) (Path pathB: Property<'b>) (options: Options) (script:Script) : Async<'a * 'b> =
+    let getScriptProperties2<'a,'b> (options: Options) (Path pathA: Property<'a>) (Path pathB: Property<'b>) (script:Script) : Async<'a * 'b> =
       async {
         let! assembly = script |> getAssembly options
         return
@@ -232,7 +232,7 @@ module FscHost =
           assembly |> Property.get<'b> pathB
       }
 
-    let getScriptProperties3<'a,'b,'c> (Path pathA: Property<'a>) (Path pathB: Property<'b>) (Path pathC: Property<'c>) (options: Options) (script:Script) : Async<'a * 'b * 'c> =
+    let getScriptProperties3<'a,'b,'c> (options: Options) (Path pathA: Property<'a>) (Path pathB: Property<'b>) (Path pathC: Property<'c>) (script:Script) : Async<'a * 'b * 'c> =
       async {
         let! assembly = script |> getAssembly options
         return
@@ -241,7 +241,7 @@ module FscHost =
           assembly |> Property.get<'c> pathC
       }
 
-    let getScriptProperties4<'a,'b,'c,'d> (Path pathA: Property<'a>) (Path pathB: Property<'b>) (Path pathC: Property<'c>)  (Path pathD: Property<'d>) (options: Options) (script:Script) : Async<'a * 'b * 'c * 'd> =
+    let getScriptProperties4<'a,'b,'c,'d> (options: Options) (Path pathA: Property<'a>) (Path pathB: Property<'b>) (Path pathC: Property<'c>) (Path pathD: Property<'d>) (script:Script) : Async<'a * 'b * 'c * 'd> =
       async {
         let! assembly = script |> getAssembly options
         return

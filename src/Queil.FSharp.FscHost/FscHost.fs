@@ -65,8 +65,8 @@ module FscHost =
   exception ScriptParseError of errors: string seq
   exception ScriptCompileError of errors: string seq
   exception ScriptModuleNotFound of path: string * moduleName: string
-  exception ScriptMemberHasInvalidType of name: string * actualTypeSignature: string
-  exception ScriptMemberNotFound of name: string * foundProperties: string list
+  exception ScriptMemberHasInvalidType of memberName: string * actualTypeSignature: string
+  exception ScriptMemberNotFound of memberName: string * foundMembers: string list
   exception ExpectedMemberParentTypeNotFound of memberPath: string
   exception MultipleMemberParentTypeCandidatesFound of memberPath: string
 
@@ -158,7 +158,7 @@ module FscHost =
         info |> unwrapAs typeof<'a>
              |> LeafExpressionConverter.EvaluateQuotation
              |> tryCast (info.ToString())
-      | [t] -> raise (ScriptMemberNotFound (memberPath, t.GetProperties() |> Seq.map (fun p -> p.Name) |> Seq.toList))
+      | [t] -> raise (ScriptMemberNotFound (memberPath, t.GetMembers() |> Seq.map (fun p -> $"{p.MemberType}: {p.Name}") |> Seq.toList))
       | [] -> raise (ExpectedMemberParentTypeNotFound memberPath)
       | _ -> raise (MultipleMemberParentTypeCandidatesFound memberPath)
 
@@ -276,7 +276,7 @@ module FscHost =
                     | _ -> None)
                   |> Seq.groupBy id
                   |> Seq.map (fun (path, _) -> path)
-              | _ -> raise (ScriptParseError (projResults.Diagnostics |> Seq.map string) )
+              | _ -> raise (ScriptParseError (projResults.Diagnostics |> Seq.map string))
           | _ -> return raise (ScriptParseError (errors |> Seq.map string) )
         }
     

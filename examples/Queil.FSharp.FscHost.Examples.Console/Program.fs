@@ -6,7 +6,7 @@ try
   let getScriptProperties () =
     File "script.fsx"
     |> CompilerHost.getScriptProperties2 Options.Default
-         (Property<string -> string>.Path "Script.helloFromScript")
+         (Property<string -> string>.Path "Script.helloFromScript2")
          (Property<int list>.Path "Script.myPrimes")
 
   let (helloWorld, primesOfTheDay) = getScriptProperties () |> Async.RunSynchronously
@@ -20,7 +20,7 @@ try
 
 with
 // you can handle more exceptions from the CompilerHost here
-| ScriptMemberNotFound(propertyName, foundProperties) ->
-  printfn "Couldn't find property: '%s'" propertyName
-  printfn "Found properties: "
+| ScriptMemberNotFound(memberName, foundProperties) ->
+  printfn "Couldn't find member: '%s'" memberName
+  printfn "Found members: "
   foundProperties |> Seq.iter(printfn "%s")

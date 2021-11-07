@@ -7,7 +7,7 @@ compiled scripts.
 
 ## What is supported
 
-* Referencing NuGet packages and other scripts via usual "#r" directive
+* Referencing NuGet packages and other scripts via the usual [`#r` directive](https://docs.microsoft.com/en-us/dotnet/fsharp/tools/fsharp-interactive/#referencing-packages-in-f-interactive)
 * Controlling compilation options
 * Basic assembly caching (opt-in via options - so far invalidation is only supported for the root script file)
 * Basic logging (by passing a logging func via options)

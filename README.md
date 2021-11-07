@@ -21,7 +21,7 @@ compiled scripts.
 1. Create a console app and add the package
 
 ```
-dotnet new console -lang F# --name fsc-host-test && cd  fsc-host-test && dotnet add package Queil.FSharp.FscHost --version 0.13.0
+dotnet new console -lang F# --name fsc-host-test && cd fsc-host-test && dotnet add package Queil.FSharp.FscHost --version 0.13.0
 ```
 
 2. Save the below as `script.fsx`:
@@ -58,7 +58,7 @@ try
 with
 // you can handle more exceptions from the CompilerHost here
 | ScriptMemberNotFound(propertyName, foundProperties) ->
-  printfn "Couldn't find property: '%s'" propertyName
+  printfn "Couldn't find member: '%s'" propertyName
   printfn "Found properties: "
   foundProperties |> Seq.iter(printfn "%s")
 

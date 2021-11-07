@@ -15,6 +15,9 @@ let invoke<'a> (func:unit -> 'a) =
   with 
   | ScriptCompileError errors -> 
     failwithf "%s" (errors |> String.concat "\n")
+  | ScriptsPropertyHasInvalidType (propertyName, actualTypeSignature) ->
+    printfn "Diagnostics: Property '%s' should be of type '%s' but is '%s'" propertyName (typeof<'a>.Name) actualTypeSignature
+    reraise ()
 
 [<Tests>]
 let tests =
@@ -68,7 +71,7 @@ let myFunc = myFuncOrig
                 (fun exn ->
                   match exn with
                   | ScriptsPropertyHasInvalidType(_, typ) -> 
-                    "Expected type is not right" |> Expect.equal typ typeof<string -> string>
+                    "Expected type is not right" |> Expect.equal typ (typeof<string -> string>.ToString())
                   |_ -> failtest "Should throw ScriptsPropertyHasInvalidType") |> ignore
     }
 
@@ -163,13 +166,12 @@ module Test.Script
 #r "nuget: JsonPatch.Net, 1.1.0"
 
 let myFunc () = Json.Pointer.JsonPointer.Parse("/some").ToString()
-let export = myFunc
 """
-      invoke <| fun () ->
-        let myFunc =
-          Inline script |>
-            CompilerHost.getAssembly options |> Async.RunSynchronously |> Property.get<unit -> string> "Test.Script.export"
-        "Value should match" |> Expect.equal (myFunc ()) "/some"
+      let myFunc = invoke <| fun () ->
+        Inline script |>
+          CompilerHost.getAssembly options |> Async.RunSynchronously |> Property.get<unit -> string> "Test.Script.myFunc"
+      
+      "Value should match" |> Expect.equal (myFunc ()) "/some"
     }
 
     test "Should pass defined symbols" {
@@ -187,4 +189,32 @@ let export = "NOT_WORKED"
             CompilerHost.getAssembly opts |> Async.RunSynchronously |> Property.get<string> "Test.Script.export"
         "Value should match" |> Expect.equal value "WORKED"
     }
-  ]
+  
+    test "Should be able to invoke func" {
+      let script = """
+namespace Test.Script
+
+module Func =
+  let myFunc (tuple2:float * int) (text:string) (number: int) (test: unit option) = 
+    
+    let (t2f, t2i) = tuple2
+    sprintf "tuple2: (%f, %i) - text: %s - number: %i - unit option: %A" t2f t2i text number test
+  
+  let sideEffect () =
+    raise (System.Exception("THAT WORKED"))
+    ()
+
+"""
+      let (resultFunc, sideEffect) = invoke <| fun () ->
+        Inline script |>
+          CompilerHost.getScriptProperties2 options
+            (Property<(float * int) -> string -> int -> unit option -> string>.Path "Test.Script.Func.myFunc")
+            (Property<unit -> unit>.Path "Test.Script.Func.sideEffect")
+             |> Async.RunSynchronously
+
+      let result = resultFunc (2.0, 8) "expected" 451 (Some ())
+      let msg = Expect.throwsC( fun () -> sideEffect ()) (fun exn -> exn.Message)
+      "Unexpected exception message" |> Expect.equal msg "THAT WORKED"
+      "Lists should be equal" |> Expect.equal result "tuple2: (2.000000, 8) - text: expected - number: 451 - unit option: Some ()"
+    }
+ ]

@@ -14,7 +14,7 @@ compiled scripts.
 
 ## Requirements
 
-* .NET SDK 6 (it's the best to package apps using fsc-host as Docker images)
+* .NET SDK 6 (it is convenient to package apps using `fsc-host` as Docker images)
 
 ## Example
 

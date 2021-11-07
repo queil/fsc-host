@@ -65,8 +65,8 @@ module FscHost =
   exception ScriptParseError of errors: string seq
   exception ScriptCompileError of errors: string seq
   exception ScriptModuleNotFound of path: string * moduleName: string
-  exception ScriptsPropertyHasInvalidType of propertyName: string * actualTypeSignature: string
-  exception ScriptMemberNotFound of propertyName: string * foundProperties: string list
+  exception ScriptMemberHasInvalidType of name: string * actualTypeSignature: string
+  exception ScriptMemberNotFound of name: string * foundProperties: string list
   exception ExpectedMemberParentTypeNotFound of memberPath: string
   exception MultipleMemberParentTypeCandidatesFound of memberPath: string
 
@@ -138,7 +138,7 @@ module FscHost =
         try
           value :?> 'a
         with
-        | :? InvalidCastException -> raise (ScriptsPropertyHasInvalidType (memberPath, actualType))
+        | :? InvalidCastException -> raise (ScriptMemberHasInvalidType (memberPath, actualType))
 
       let (|Property|_|) (name:string) (t:Type) =
         match t.GetProperty(name, BindingFlags.Static ||| BindingFlags.Public) with

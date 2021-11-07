@@ -15,7 +15,7 @@ let invoke<'a> (func:unit -> 'a) =
   with 
   | ScriptCompileError errors -> 
     failwithf "%s" (errors |> String.concat "\n")
-  | ScriptsPropertyHasInvalidType (propertyName, actualTypeSignature) ->
+  | ScriptMemberHasInvalidType (propertyName, actualTypeSignature) ->
     printfn "Diagnostics: Property '%s' should be of type '%s' but is '%s'" propertyName (typeof<'a>.Name) actualTypeSignature
     reraise ()
 
@@ -70,7 +70,7 @@ let myFunc = myFuncOrig
                 
                 (fun exn ->
                   match exn with
-                  | ScriptsPropertyHasInvalidType(_, typ) -> 
+                  | ScriptMemberHasInvalidType(_, typ) -> 
                     "Expected type is not right" |> Expect.equal typ (typeof<string -> string>.ToString())
                   |_ -> failtest "Should throw ScriptsPropertyHasInvalidType") |> ignore
     }

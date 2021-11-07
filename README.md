@@ -57,10 +57,10 @@ try
 
 with
 // you can handle more exceptions from the CompilerHost here
-| ScriptMemberNotFound(propertyName, foundProperties) ->
-  printfn "Couldn't find member: '%s'" propertyName
-  printfn "Found properties: "
-  foundProperties |> Seq.iter(printfn "%s")
+| ScriptMemberNotFound(name, foundMembers) ->
+  printfn "Couldn't find member: '%s'" name
+  printfn "Found members: "
+  foundMembers |> Seq.iter(printfn "%s")
 
 ```
 

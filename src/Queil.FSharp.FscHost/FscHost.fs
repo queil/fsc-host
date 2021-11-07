@@ -65,13 +65,67 @@ module FscHost =
   exception ScriptParseError of errors: string seq
   exception ScriptCompileError of errors: string seq
   exception ScriptModuleNotFound of path: string * moduleName: string
-  exception ScriptsPropertyHasInvalidType of propertyName: string * actualType: System.Type
-  exception ScriptsPropertyNotFound of propertyName: string * foundProperties: string list
+  exception ScriptMemberHasInvalidType of name: string * actualTypeSignature: string
+  exception ScriptMemberNotFound of name: string * foundProperties: string list
   exception ExpectedMemberParentTypeNotFound of memberPath: string
   exception MultipleMemberParentTypeCandidatesFound of memberPath: string
 
   [<RequireQualifiedAccess>]
   module Property =
+    open FSharp.Reflection
+    open FSharp.Quotations
+    open FSharp.Linq.RuntimeHelpers
+    
+    let private unwrapAs (funcType: Type) (methodInfo:MethodInfo) = 
+      let funcTypes = FSharpType.GetFunctionElements funcType
+      let parameters = methodInfo.GetParameters() |> Seq.toList
+
+      let rec buildExpr (ts:Type * Type) (vs: Var list) (ps: ParameterInfo list) =
+        let rec getArgName (ps': ParameterInfo list) =
+          match ps' with 
+          | h::t -> (h.Name, t)
+          | _ -> failwithf "Never happens"
+
+        match ps with
+        | [] -> Expr.Call(methodInfo, vs |> Seq.map(Expr.Var) |> Seq.rev |> Seq.toList)
+        | ps ->
+          let (d, r) = ts
+          let makeLambda (dr) =
+            match d with
+            | d when d |> FSharpType.IsTuple ->
+              let tupleVar = Var("_tupled", d)
+
+              let rec rewriteTuples idx vs ps' (tups: Type list) =
+                let (varName, rest) = getArgName ps'
+                match tups with
+                | [] -> failwith "Never happens"
+                | [h] -> 
+                  let var = Var(varName + h.Name, h)
+                  Expr.Let(var, Expr.TupleGet(tupleVar |> Expr.Var, idx), buildExpr dr (var::vs) rest)
+                | h::t ->
+                  let var = Var(varName + h.Name, h)
+                  Expr.Let(var, Expr.TupleGet(tupleVar |> Expr.Var, idx), rewriteTuples (idx+1) (var::vs) rest t)
+                 
+              Expr.Lambda(tupleVar,
+               d |> FSharpType.GetTupleElements
+                 |> Seq.toList
+                 |> rewriteTuples 0 vs ps)
+            |_ ->
+              let (varName, rest) = getArgName ps
+              let v = Var(varName, d)
+              Expr.Lambda(v, buildExpr dr (v::vs) rest)
+          
+          let next =
+            match r with
+            | null -> null, null
+            | r when r |> FSharpType.IsFunction -> FSharpType.GetFunctionElements r
+            | r -> r, null
+          next |> makeLambda
+
+      match parameters with
+      | [] -> Expr.Lambda(Var("()", typeof<unit>), Expr.Call(methodInfo, []))
+      | ps -> buildExpr funcTypes [] ps
+
     let get<'a> (memberPath:string) (assembly:Assembly) =
 
       let (fqTypeName, memberName) =
@@ -79,18 +133,34 @@ module FscHost =
         memberPath.[0..splitIndex - 1], memberPath.[splitIndex + 1..]
 
       let candidates = assembly.GetTypes() |> Seq.where (fun t -> t.FullName = fqTypeName) |> Seq.toList
+      
+      let tryCast (actualType:string) (value:obj) =
+        try
+          value :?> 'a
+        with
+        | :? InvalidCastException -> raise (ScriptMemberHasInvalidType (memberPath, actualType))
+
+      let (|Property|_|) (name:string) (t:Type) =
+        match t.GetProperty(name, BindingFlags.Static ||| BindingFlags.Public) with
+        | null -> None
+        | pi -> Some pi
+
+      let (|Method|_|) (name:string) (t:Type) =
+        match t.GetMethod(name, BindingFlags.Static ||| BindingFlags.Public) with
+        | null -> None
+        | mi when FSharpType.IsFunction typeof<'a> -> Some mi
+        | _ -> None
 
       match candidates with
-      | [t] ->
-        match t.GetProperty(memberName, BindingFlags.Static ||| BindingFlags.Public) with
-        | null -> raise (ScriptsPropertyNotFound (memberPath, t.GetProperties() |> Seq.map (fun p -> p.Name) |> Seq.toList))
-        | p ->
-          try
-            p.GetValue(null) :?> 'a
-          with
-          | :? InvalidCastException -> raise (ScriptsPropertyHasInvalidType ( memberPath, p.PropertyType))
-      | [] -> raise (ExpectedMemberParentTypeNotFound ( memberPath))
-      | _ -> raise (MultipleMemberParentTypeCandidatesFound ( memberPath))
+      | [Property memberName info] ->
+        info.GetValue(null) |> tryCast (info.PropertyType.ToString())
+      | [Method memberName info] ->
+        info |> unwrapAs typeof<'a>
+             |> LeafExpressionConverter.EvaluateQuotation
+             |> tryCast (info.ToString())
+      | [t] -> raise (ScriptMemberNotFound (memberPath, t.GetProperties() |> Seq.map (fun p -> p.Name) |> Seq.toList))
+      | [] -> raise (ExpectedMemberParentTypeNotFound memberPath)
+      | _ -> raise (MultipleMemberParentTypeCandidatesFound memberPath)
 
   [<RequireQualifiedAccess>]
   module CompilerHost =

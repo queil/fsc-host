@@ -217,4 +217,27 @@ module Func =
       "Unexpected exception message" |> Expect.equal msg "THAT WORKED"
       "Lists should be equal" |> Expect.equal result "tuple2: (2.000000, 8) - text: expected - number: 451 - unit option: Some ()"
     }
+
+    test "Should handle two tuples in func" {
+      let script = """
+namespace Test.Script
+
+module Func =
+  let myFunc (tuple1:float * int) (tuple2: string * string) = 
+    
+    let (t1f, t1i) = tuple1
+    let (t2s, t2s') = tuple2
+    sprintf "tuple1: (%f, %i) - tuple2: (%s, %s)" t1f t1i t2s t2s'
+
+"""
+      let (resultFunc) = invoke <| fun () ->
+        Inline script |>
+          CompilerHost.getScriptProperty options
+            (Property<(float * int) -> (string * string) -> string>.Path "Test.Script.Func.myFunc")
+             |> Async.RunSynchronously
+
+      let result = resultFunc (2.0, 8) ("expected", "999")
+      
+      "Lists should be equal" |> Expect.equal result "tuple1: (2.000000, 8) - tuple2: (expected, 999)"
+    }
  ]

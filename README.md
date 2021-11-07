@@ -7,10 +7,10 @@ compiled scripts.
 
 ## What is supported
 
-[x] Referencing NuGet packages and other scripts via usual "#r" directive
-[x] Controlling compilation options
-[x] Basic assembly caching (opt-in via options - so far invalidation is only supported for the root script file)
-[x] Basic logging (by passing a logging func via options)
+* Referencing NuGet packages and other scripts via usual "#r" directive
+* Controlling compilation options
+* Basic assembly caching (opt-in via options - so far invalidation is only supported for the root script file)
+* Basic logging (by passing a logging func via options)
 
 ## Requirements
 
@@ -74,3 +74,8 @@ Primes of the day:
 5
 
 ```
+
+## Resources
+
+* [My blog post about the package](https://queil.net/2021/10/embedding-fsharp-compiler-fsc-host-nuget/)
+* [FSharp Compiler Docs](https://fsharp.github.io/fsharp-compiler-docs/)

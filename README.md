@@ -7,6 +7,7 @@ compiled scripts.
 
 ## What is supported
 
+* accessing script members on the host side in a strongly-typed way (please note: if the members are not of expected types they will fail casting causing a runtime exception - there is no magic that could fix it)   
 * Referencing NuGet packages and other scripts via the usual [`#r` directive](https://docs.microsoft.com/en-us/dotnet/fsharp/tools/fsharp-interactive/#referencing-packages-in-f-interactive)
 * Controlling compilation options
 * Basic assembly caching (opt-in via options - so far invalidation is only supported for the root script file)
@@ -15,6 +16,10 @@ compiled scripts.
 ## Requirements
 
 * .NET SDK 6 (it is convenient to package apps using `fsc-host` as Docker images)
+
+## Warning
+
+This project is still in v0 which means the public API hasn't stabilised yet and breaking changes may happen between minor versions. Breaking changes are indicated in the release notes in GitHub releases. 
 
 ## Example
 

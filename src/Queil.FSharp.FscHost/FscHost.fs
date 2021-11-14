@@ -8,7 +8,6 @@ open System.IO
 open System.Reflection
 open System.Text
 open System.Security.Cryptography
-open Errors
 
 type Script = | File of path: string | Inline of body: string
 type Member<'a> = | Path of string

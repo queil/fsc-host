@@ -1,6 +1,5 @@
 namespace Queil.FSharp.FscHost
 
-open Errors
 open FSharp.Quotations
 open FSharp.Reflection
 open System

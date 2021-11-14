@@ -2,7 +2,6 @@ module Queil.FSharp.FscHost.Tests
 
 open Expecto
 open Queil.FSharp.FscHost
-open Errors
 
 let options = 
   { Options.Default with

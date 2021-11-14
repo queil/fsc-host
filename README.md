@@ -21,7 +21,7 @@ compiled scripts.
 1. Create a console app and add the package
 
 ```
-dotnet new console -lang F# --name fsc-host-test && cd fsc-host-test && dotnet add package Queil.FSharp.FscHost --version 0.13.1
+dotnet new console -lang F# --name fsc-host-test && cd fsc-host-test && dotnet add package Queil.FSharp.FscHost --version 0.14.0
 ```
 
 2. Save the below as `script.fsx`:
@@ -42,9 +42,9 @@ try
   // compile a script and retrieve two properties out of it
   let getScriptProperties () =
     File "script.fsx"
-    |> CompilerHost.getScriptProperties2 Options.Default
-         (Property<string -> string>.Path "Script.helloFromScript")
-         (Property<int list>.Path "Script.myPrimes")
+    |> CompilerHost.getMember2 Options.Default
+         (Member<string -> string>.Path "Script.helloFromScript")
+         (Member<int list>.Path "Script.myPrimes")
 
   let (helloWorld, primesOfTheDay) = getScriptProperties () |> Async.RunSynchronously
 

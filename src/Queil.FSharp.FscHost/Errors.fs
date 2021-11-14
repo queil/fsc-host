@@ -1,5 +1,6 @@
 namespace Queil.FSharp.FscHost
 
+[<AutoOpen>]
 module Errors =
   exception NuGetRestoreFailed of message: string
   exception ScriptParseError of errors: string seq

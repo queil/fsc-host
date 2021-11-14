@@ -190,33 +190,33 @@ let tests =
 //         "Value should match" |> Expect.equal value "WORKED"
 //     }
   
-//     test "Should be able to invoke func" {
-//       let script = """
-// namespace Test.Script
+    test "Should be able to invoke func" {
+      let script = """
+namespace Test.Script
 
-// module Func =
-//   let myFunc (tuple2:float * int) (text:string) (number: int) (test: unit option) = 
+module Func =
+  let myFunc (tuple2:float * int) (text:string) (number: int) (test: unit option) = 
     
-//     let (t2f, t2i) = tuple2
-//     sprintf "tuple2: (%f, %i) - text: %s - number: %i - unit option: %A" t2f t2i text number test
+    let (t2f, t2i) = tuple2
+    sprintf "tuple2: (%f, %i) - text: %s - number: %i - unit option: %A" t2f t2i text number test
   
-//   let sideEffect () =
-//     raise (System.Exception("THAT WORKED"))
-//     ()
+  let sideEffect () =
+    raise (System.Exception("THAT WORKED"))
+    ()
 
-// """
-//       let (resultFunc, sideEffect) = invoke <| fun () ->
-//         Inline script |>
-//           CompilerHost.getScriptProperties2 options
-//             (Property<(float * int) -> string -> int -> unit option -> string>.Path "Test.Script.Func.myFunc")
-//             (Property<unit -> unit>.Path "Test.Script.Func.sideEffect")
-//              |> Async.RunSynchronously
+"""
+      let (resultFunc, sideEffect) = invoke <| fun () ->
+        Inline script |>
+          CompilerHost.getScriptProperties2 options
+            (Property<(float * int) -> string -> int -> unit option -> string>.Path "Test.Script.Func.myFunc")
+            (Property<unit -> unit>.Path "Test.Script.Func.sideEffect")
+             |> Async.RunSynchronously
 
-//       let result = resultFunc (2.0, 8) "expected" 451 (Some ())
-//       let msg = Expect.throwsC( fun () -> sideEffect ()) (fun exn -> exn.Message)
-//       "Unexpected exception message" |> Expect.equal msg "THAT WORKED"
-//       "Lists should be equal" |> Expect.equal result "tuple2: (2.000000, 8) - text: expected - number: 451 - unit option: Some ()"
-//     }
+      let result = resultFunc (2.0, 8) "expected" 451 (Some ())
+      let msg = Expect.throwsC( fun () -> sideEffect ()) (fun exn -> exn.Message)
+      "Unexpected exception message" |> Expect.equal msg "THAT WORKED"
+      "Lists should be equal" |> Expect.equal result "tuple2: (2.000000, 8) - text: expected - number: 451 - unit option: Some ()"
+    }
 
     test "Should handle two decomposed tuples in func" {
       let script = """
@@ -236,7 +236,7 @@ module Func =
           CompilerHost.getScriptProperty options
             (Property<(float * int) -> ((_ -> string) * (string -> _))-> string>.Path "Test.Script.Func.myFunc")
              |> Async.RunSynchronously
-      // this tests fails when the unit in fun () -> "test" is replaced by fun x -> "test"
+      //this tests fails when the unit in fun () -> "test" is replaced by fun x -> "test"
       let result = resultFunc (2.0, 8) ((fun () -> "test"), (fun _ -> ()))
       
       "Lists should be equal" |> Expect.equal result "tuple1: (2.000000, 8) - tuple2: (test, ())"
@@ -261,22 +261,22 @@ module Func =
       "Values should be equal" |> Expect.equal result "Generic: (2.0, 8)"
     }
 
-//     test "Should handle fully generic method with tuples in func" {
-//       let script = """
-// namespace Test.Script
+    test "Should handle fully generic method with tuples in func" {
+      let script = """
+namespace Test.Script
 
-// module Func =
-//   let myFunc something toB : 'b = something |> toB
+module Func =
+  let myFunc something toB : 'b = something |> toB
 
-// """
-//       let (resultFunc) = invoke <| fun () ->
-//         Inline script |>
-//           CompilerHost.getScriptProperty options
-//             (Property<_ -> (_ -> _) -> _>.Path "Test.Script.Func.myFunc")
-//              |> Async.RunSynchronously
+"""
+      let (resultFunc) = invoke <| fun () ->
+        Inline script |>
+          CompilerHost.getScriptProperty options
+            (Property<_ -> (_ -> _) -> _>.Path "Test.Script.Func.myFunc")
+             |> Async.RunSynchronously
 
-//       let result = resultFunc (2.0, 8) <| fun (a, b) -> sprintf "Generic: (%f, %i)" a b
+      let result = resultFunc (2.0, 8) <| fun (a, b) -> sprintf "Generic: (%f, %i)" a b
       
-//       "Values should be equal" |> Expect.equal result "Generic: (2.000000, 8)"
-//     }
+      "Values should be equal" |> Expect.equal result "Generic: (2.000000, 8)"
+    }
  ]

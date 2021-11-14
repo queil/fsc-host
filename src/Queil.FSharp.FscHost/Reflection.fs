@@ -61,15 +61,13 @@ module internal Reflection =
         Expr.Lambda(v, build fs' ps' { s with Vars = v::s.Vars })
 
       | (FsTuple us as f)::_, p::ps' when s.Index < us.Length ->
-        
         handleGenerics us.[s.Index] p s
         let v = Var($"{p.Name}_{s.Index}", us.[s.Index])
         let expr tv = Expr.Let(v, Expr.TupleGet(Expr.Var tv, s.Index),
           build fs ps' {s with Vars = v::s.Vars; Index = s.Index+1; TupleVar = Some tv})
-
         match s.TupleVar with
         | Some tv -> expr tv
-        | None -> 
+        | None ->
           let tupleVar = Var("tupledArg", f)
           Expr.Lambda(tupleVar, expr tupleVar)
 
@@ -84,7 +82,6 @@ module internal Reflection =
 
       | _ ->
         let vars = s.Vars |> Seq.map(Expr.Var) |> Seq.rev |> Seq.toList
-
         let maybeGeneric =
           if methodInfo.IsGenericMethod then
             let gps = methodInfo.GetGenericArguments() |> Seq.map (fun t -> s.GenericParams.[t]) |> Seq.toArray
@@ -97,7 +94,6 @@ module internal Reflection =
     match parameters with
     | [] -> Expr.Lambda(Var("()", typeof<unit>), build funTypes [] State.Empty)
     | ps -> build funTypes ps State.Empty
-
 
 [<RequireQualifiedAccess>]
 module Member =

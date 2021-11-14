@@ -86,12 +86,7 @@ module FscHost =
       match t with
       | t when FSharpType.IsTuple t -> Some (FSharpType.GetTupleElements t |> Seq.toList)
       | _ -> None
-    
-    let (|GenericFunc|_|) (t:Type) =
-      match t with
-      | t when FSharpType.IsFunction t -> Some (FSharpType.GetFunctionElements t )
-      | _ -> None
-    
+
     type State = {
       Vars: Var list
       Index: int

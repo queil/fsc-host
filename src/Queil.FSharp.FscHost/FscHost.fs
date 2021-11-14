@@ -75,56 +75,132 @@ module FscHost =
     open FSharp.Reflection
     open FSharp.Quotations
     open FSharp.Linq.RuntimeHelpers
+    open System.Collections.Generic
     
-    let private unwrapAs (funcType: Type) (methodInfo:MethodInfo) = 
-      let funcTypes = FSharpType.GetFunctionElements funcType
+    let (|FsFunc|_|) (t:Type) =
+      match t with
+      | t when FSharpType.IsFunction t -> Some (FSharpType.GetFunctionElements t)
+      | _ -> None
+    
+    let (|FsTuple|_|) (t:Type) =
+      match t with
+      | t when FSharpType.IsTuple t -> Some (FSharpType.GetTupleElements t |> Seq.toList)
+      | _ -> None
+    
+    type State = {
+      Vars: Var list
+      Index: int
+      TupleVar: Var option
+
+    }
+    with
+      static member Empty = {
+        Vars = []
+        Index = 0
+        TupleVar = None
+      }
+
+    
+    let private unwrapAs (funcType: Type) (methodInfo:MethodInfo) : Expr = 
       let parameters = methodInfo.GetParameters() |> Seq.toList
-
-      let rec buildExpr (ts:Type * Type) (vs: Var list) (ps: ParameterInfo list) =
-        let rec getArgName (ps': ParameterInfo list) =
-          match ps' with 
-          | h::t -> (h.Name, t)
-          | _ -> failwithf "Never happens"
-
-        match ps with
-        | [] -> Expr.Call(methodInfo, vs |> Seq.map(Expr.Var) |> Seq.rev |> Seq.toList)
-        | ps ->
-          let (d, r) = ts
-          let makeLambda (dr) =
-            match d with
-            | d when d |> FSharpType.IsTuple ->
-              let tupleVar = Var("_tupled", d)
-
-              let rec rewriteTuples idx vs ps' (tups: Type list) =
-                let (varName, rest) = getArgName ps'
-                match tups with
-                | [] -> failwith "Never happens"
-                | [h] -> 
-                  let var = Var(varName + h.Name, h)
-                  Expr.Let(var, Expr.TupleGet(tupleVar |> Expr.Var, idx), buildExpr dr (var::vs) rest)
-                | h::t ->
-                  let var = Var(varName + h.Name, h)
-                  Expr.Let(var, Expr.TupleGet(tupleVar |> Expr.Var, idx), rewriteTuples (idx+1) (var::vs) rest t)
-                 
-              Expr.Lambda(tupleVar,
-               d |> FSharpType.GetTupleElements
-                 |> Seq.toList
-                 |> rewriteTuples 0 vs ps)
-            |_ ->
-              let (varName, rest) = getArgName ps
-              let v = Var(varName, d)
-              Expr.Lambda(v, buildExpr dr (v::vs) rest)
+      let funTypes = funcType |> Seq.unfold (function | FsFunc (a, b) -> Some (a, b) |_ -> None) |> Seq.toList
+  
+      let rec build (fs: Type list) (ps:ParameterInfo list) (s: State) =
+        match (fs, ps) with
+        | f::fs', p::ps' when f = p.ParameterType || p.ParameterType.IsGenericMethodParameter ->
+          let v = Var(p.Name, f)
+          Expr.Lambda(v, build fs' ps' { s with Vars = v::s.Vars })
+        | (FsTuple us as f)::fs', p::ps' ->
           
-          let next =
-            match r with
-            | null -> null, null
-            | r when r |> FSharpType.IsFunction -> FSharpType.GetFunctionElements r
-            | r -> r, null
-          next |> makeLambda
+          if s.Index < us.Length then
+            let v = Var($"{p.Name}_{s.Index}", us.[s.Index])
+            let expr tv = Expr.Let(v, Expr.TupleGet(Expr.Var tv, s.Index),
+              build fs ps' {s with Vars = v::s.Vars; Index = s.Index+1; TupleVar = Some tv})
 
+            match s.TupleVar with
+            | Some tv -> expr tv
+            | None -> 
+              let tupleVar = Var("tupledArg", f)
+              Expr.Lambda(tupleVar, expr tupleVar)
+          else
+            build fs' ps { s with Index = 0; TupleVar = None }
+
+        | _ ->
+          let vars = s.Vars |> Seq.map(Expr.Var) |> Seq.rev |> Seq.toList
+          
+          // let genericParameters = 
+          //   methodInfo.GetParameters()
+          //   |> Seq.filter(fun p -> p.ParameterType.IsGenericMethodParameter)
+          //   |> Seq.map(fun p ->
+              
+          //     let varTypeOrGenericParams = 
+          //         match vars.[p.Position].Type.GenericTypeArguments with
+          //         | [||] -> [|vars.[p.Position].Type|]
+          //         | xs -> xs
+          //     let paramTypeOrGenericParams =
+          //       match p.ParameterType.GenericTypeArguments with
+          //         | [||] -> [|p.ParameterType|]
+          //         | xs -> xs
+              
+          //     p.Position, (p,
+          //       (varTypeOrGenericParams |> Seq.indexed)
+          //         |> Seq.zip (paramTypeOrGenericParams |> Seq.indexed)
+          //         |> Seq.filter(fun ((_, a),(_, b)) -> 
+          //           a.IsGenericMethodParameter)
+          //         |> Seq.map (fun ((i, a), (_,b)) -> i, (a,b) )
+          //         |> dict)
+          //   )
+          //   |> dict
+
+          // let flatten = 
+          //   genericParameters
+          //   |> Seq.collect (fun (KeyValue(i, (p, subs))) ->
+          //      subs |> Seq.map (fun (KeyValue(j, (a,b))) ->
+          //        (a, (i, j, b) )
+          //      )
+          //   ) 
+          //   |> Seq.fold (fun (y:Dictionary<Type, Type * Dictionary<int, int list>>) (a, (i, j, b)) ->
+          //     if not <| y.ContainsKey(a) then
+          //       y.[a] <- (b, ([(i, [j])] |> dict |> Dictionary<int, int list>))
+          //     else if y.[a] |> fst = typeof<obj> && b <> typeof<obj> then
+          //       let subs = y.[a] |> snd
+          //       y.[a] <- (b, subs)
+          //     y
+          //   ) (Dictionary<Type, Type * Dictionary<int, int list>>())
+
+
+          // this won't work as those new vars are not identical to the lambdas vars
+          // let vars = 
+          //   vars |> Seq.indexed
+          //        |> Seq.map (fun (i, v) ->
+          //           match flatten |> Seq.tryPick ((fun (KeyValue(_, (t, d))) -> if d.ContainsKey(i) then Some (t,d.[i]) else None)) with
+          //           | Some (s, idxs) -> v.Type
+          //             v.Substitute <| fun v ->
+          //               let subs = 
+          //                 v.Type.GenericTypeArguments 
+          //                 |> Seq.mapi (fun j t -> if idxs |> Seq.contains j then s else t)
+          //                 |> Seq.toArray
+          //             if v =
+          //               (Some (Expr.Var(Var(v.Name, v.Type.GetGenericTypeDefinition().MakeGenericType(subs)))))
+          //           | None -> v)
+          //        |> Seq.toList
+                 
+                 
+                 
+          let maybeGeneric =
+            if methodInfo.IsGenericMethod then
+              //let gps = methodInfo.GetGenericArguments() |> Seq.map (fun t -> flatten.[t] |> fst) |> Seq.toArray
+              //methodInfo.MakeGenericMethod(gps)
+              methodInfo
+            else
+              methodInfo
+
+          Expr.Call(maybeGeneric, vars)
+    
       match parameters with
-      | [] -> Expr.Lambda(Var("()", typeof<unit>), Expr.Call(methodInfo, []))
-      | ps -> buildExpr funcTypes [] ps
+      | [] -> Expr.Lambda(Var("()", typeof<unit>), build funTypes [] State.Empty)
+      | ps -> build funTypes ps State.Empty
+      
 
     let get<'a> (memberPath:string) (assembly:Assembly) =
 
@@ -156,6 +232,7 @@ module FscHost =
         info.GetValue(null) |> tryCast (info.PropertyType.ToString())
       | [Method memberName info] ->
         info |> unwrapAs typeof<'a>
+             |> (fun x -> printfn "%A" x; x)
              |> LeafExpressionConverter.EvaluateQuotation
              |> tryCast (info.ToString())
       | [t] -> raise (ScriptMemberNotFound (memberPath, t.GetMembers() |> Seq.map (fun p -> $"{p.MemberType}: {p.Name}") |> Seq.toList))

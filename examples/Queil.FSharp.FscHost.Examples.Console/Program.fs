@@ -5,11 +5,12 @@ try
   // compile a script and retrieve two properties out of it
   let getScriptProperties () =
     File "script.fsx"
-    |> CompilerHost.getScriptProperties2 Options.Default
-         (Property<string -> string>.Path "Script.helloFromScript2")
+    |> CompilerHost.getScriptProperties3 Options.Default
+         (Property<string -> string>.Path "Script.helloFromScript")
          (Property<int list>.Path "Script.myPrimes")
+         (Property<_ -> string>.Path "Script.generic")
 
-  let (helloWorld, primesOfTheDay) = getScriptProperties () |> Async.RunSynchronously
+  let (helloWorld, primesOfTheDay, generic) = getScriptProperties () |> Async.RunSynchronously
 
   let myName = "Console Example"
 

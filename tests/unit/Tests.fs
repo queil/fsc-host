@@ -86,7 +86,7 @@ module Countries =
 """
       let result = invoke <| fun () ->
         Inline script |>
-          CompilerHost.getMembers2 options
+          CompilerHost.getMember2 options
             (Member<string list>.Path "Test.Script.Countries.myList")
             (Member<int>.Path "Test.Script.Countries.myCount")
             
@@ -107,7 +107,7 @@ module Countries =
 """
       let result = invoke <| fun () ->
         Inline script |>
-          CompilerHost.getMembers3 options
+          CompilerHost.getMember3 options
             (Member<string list>.Path "Test.Script.Countries.myList")
             (Member<int>.Path "Test.Script.Countries.myCount")
             (Member<float>.Path "Test.Script.Countries.myFloat")
@@ -130,7 +130,7 @@ module Countries =
 """
       let result = invoke <| fun () ->
         Inline script |>
-          CompilerHost.getMembers4 options
+          CompilerHost.getMember4 options
             (Member<string list>.Path "Test.Script.Countries.myList")
             (Member<int>.Path "Test.Script.Countries.myCount")
             (Member<float>.Path "Test.Script.Countries.myFloat")
@@ -208,7 +208,7 @@ module Func =
 """
       let (resultFunc, sideEffect) = invoke <| fun () ->
         Inline script |>
-          CompilerHost.getMembers2 options
+          CompilerHost.getMember2 options
             (Member<(float * int) -> string -> int -> unit option -> string>.Path "Test.Script.Func.myFunc")
             (Member<unit -> unit>.Path "Test.Script.Func.sideEffect")
              |> Async.RunSynchronously

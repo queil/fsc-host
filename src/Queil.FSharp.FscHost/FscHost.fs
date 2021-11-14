@@ -194,7 +194,7 @@ module CompilerHost =
       return assembly |> Member.get pathA
     }
 
-  let getMembers2<'a,'b> (options: Options) (Path pathA: Member<'a>) (Path pathB: Member<'b>) (script:Script) : Async<'a * 'b> =
+  let getMember2<'a,'b> (options: Options) (Path pathA: Member<'a>) (Path pathB: Member<'b>) (script:Script) : Async<'a * 'b> =
     async {
       let! assembly = script |> getAssembly options
       return
@@ -202,7 +202,7 @@ module CompilerHost =
         assembly |> Member.get<'b> pathB
     }
 
-  let getMembers3<'a,'b,'c> (options: Options) (Path pathA: Member<'a>) (Path pathB: Member<'b>) (Path pathC: Member<'c>) (script:Script) : Async<'a * 'b * 'c> =
+  let getMember3<'a,'b,'c> (options: Options) (Path pathA: Member<'a>) (Path pathB: Member<'b>) (Path pathC: Member<'c>) (script:Script) : Async<'a * 'b * 'c> =
     async {
       let! assembly = script |> getAssembly options
       return
@@ -211,7 +211,7 @@ module CompilerHost =
         assembly |> Member.get<'c> pathC
     }
 
-  let getMembers4<'a,'b,'c,'d> (options: Options) (Path pathA: Member<'a>) (Path pathB: Member<'b>) (Path pathC: Member<'c>) (Path pathD: Member<'d>) (script:Script) : Async<'a * 'b * 'c * 'd> =
+  let getMember4<'a,'b,'c,'d> (options: Options) (Path pathA: Member<'a>) (Path pathB: Member<'b>) (Path pathC: Member<'c>) (Path pathD: Member<'d>) (script:Script) : Async<'a * 'b * 'c * 'd> =
     async {
       let! assembly = script |> getAssembly options
       return

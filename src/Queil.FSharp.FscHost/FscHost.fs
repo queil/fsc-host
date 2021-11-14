@@ -91,6 +91,7 @@ module FscHost =
       Vars: Var list
       Index: int
       TupleVar: Var option
+      GenericParams: Dictionary<Type, Type>
 
     }
     with
@@ -98,20 +99,31 @@ module FscHost =
         Vars = []
         Index = 0
         TupleVar = None
+        GenericParams = Dictionary<Type, Type>()
       }
 
     
     let private unwrapAs (funcType: Type) (methodInfo:MethodInfo) : Expr = 
       let parameters = methodInfo.GetParameters() |> Seq.toList
       let funTypes = funcType |> Seq.unfold (function | FsFunc (a, b) -> Some (a, b) |_ -> None) |> Seq.toList
-  
+      let mGenericArguments = methodInfo.GetGenericArguments()
+
+      let handleGenerics (f:Type) (p:ParameterInfo) (s:State) =
+        match (f, p.ParameterType) with
+        | f, p when f = p -> ()
+        | f, p when p.IsGenericMethodParameter -> s.GenericParams.Add(p, f)
+        | _ -> ()
+
       let rec build (fs: Type list) (ps:ParameterInfo list) (s: State) =
         match (fs, ps) with
         | f::fs', p::ps' when f = p.ParameterType || p.ParameterType.IsGenericMethodParameter ->
+          handleGenerics f p s
+
           let v = Var(p.Name, f)
           Expr.Lambda(v, build fs' ps' { s with Vars = v::s.Vars })
         | (FsTuple us as f)::fs', p::ps' ->
-          
+          handleGenerics f p s
+
           if s.Index < us.Length then
             let v = Var($"{p.Name}_{s.Index}", us.[s.Index])
             let expr tv = Expr.Let(v, Expr.TupleGet(Expr.Var tv, s.Index),
@@ -189,9 +201,9 @@ module FscHost =
                  
           let maybeGeneric =
             if methodInfo.IsGenericMethod then
-              //let gps = methodInfo.GetGenericArguments() |> Seq.map (fun t -> flatten.[t] |> fst) |> Seq.toArray
-              //methodInfo.MakeGenericMethod(gps)
-              methodInfo
+              let gps = methodInfo.GetGenericArguments() |> Seq.map (fun t -> s.GenericParams.[t]) |> Seq.toArray
+              methodInfo.MakeGenericMethod(gps)
+             
             else
               methodInfo
 

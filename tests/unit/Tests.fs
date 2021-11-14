@@ -218,29 +218,29 @@ let tests =
 //       "Lists should be equal" |> Expect.equal result "tuple2: (2.000000, 8) - text: expected - number: 451 - unit option: Some ()"
 //     }
 
-//     test "Should handle two decomposed tuples in func" {
-//       let script = """
-// namespace Test.Script
+    test "Should handle two decomposed tuples in func" {
+      let script = """
+namespace Test.Script
 
-// module Func =
+module Func =
 
-//   let myFunc (tuple1:float * int) (tuple2: ('a -> string) * (string -> 'a)) = 
+  let myFunc (tuple1:float * int) (tuple2: ('a -> string) * (string -> 'a)) = 
     
-//     let (t1f, t1i) = tuple1
-//     let (t2s, t2s') = tuple2
-//     sprintf "tuple1: (%f, %i) - tuple2: (%s, %A)" t1f t1i (t2s ()) (t2s' "")
+    let (t1f, t1i) = tuple1
+    let (t2s, t2s') = tuple2
+    sprintf "tuple1: (%f, %i) - tuple2: (%s, %A)" t1f t1i (t2s ()) (t2s' "")
 
-// """
-//       let (resultFunc) = invoke <| fun () ->
-//         Inline script |>
-//           CompilerHost.getScriptProperty options
-//             (Property<(float * int) -> ((_ -> string) * (string -> _))-> string>.Path "Test.Script.Func.myFunc")
-//              |> Async.RunSynchronously
-//       // this tests fails when the unit in fun () -> "test" is replaced by fun x -> "test"
-//       let result = resultFunc (2.0, 8) ((fun () -> "test"), (fun _ -> ()))
+"""
+      let (resultFunc) = invoke <| fun () ->
+        Inline script |>
+          CompilerHost.getScriptProperty options
+            (Property<(float * int) -> ((_ -> string) * (string -> _))-> string>.Path "Test.Script.Func.myFunc")
+             |> Async.RunSynchronously
+      // this tests fails when the unit in fun () -> "test" is replaced by fun x -> "test"
+      let result = resultFunc (2.0, 8) ((fun () -> "test"), (fun _ -> ()))
       
-//       "Lists should be equal" |> Expect.equal result "tuple1: (2.000000, 8) - tuple2: (test, ())"
-//     }
+      "Lists should be equal" |> Expect.equal result "tuple1: (2.000000, 8) - tuple2: (test, ())"
+    }
 
     test "Should handle non-decomposed tuples in func" {
       let script = """

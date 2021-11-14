@@ -44,7 +44,7 @@ module internal Reflection =
         match (f, p) with
         | f, p when p.IsGenericMethodParameter ->
           if s.GenericParams.ContainsKey(p) && s.GenericParams.[p] <> f then
-            failwithf "Failed to add type %s as a substitute for generic parameter type %s. It already has a substitute of type %s" 
+            failwithf "Failed to add type '%s' as a substitute for generic parameter type '%s'. It already has a substitute (%s)" 
               (f.ToString()) (p.ToString()) (s.GenericParams.[p].ToString())
           else s.GenericParams.TryAdd(p, f) |> ignore
         | (FsFunc (fi, fo)), (FsFunc (pi, po)) ->

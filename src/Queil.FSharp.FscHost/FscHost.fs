@@ -110,10 +110,14 @@ module FscHost =
         let rec handle f (p:Type) s =
           match (f, p) with
           | f, p when f = p -> ()
-          | f, p when p.IsGenericMethodParameter -> s.GenericParams.TryAdd(p, f) |> ignore
-          | (FsFunc (fi,fo)), (FsFunc (pi,po)) ->
+          | f, p when p.IsGenericMethodParameter -> 
+            if s.GenericParams.ContainsKey(p) && s.GenericParams.[p] <> f then
+              failwithf "HERE I GO"
+            else s.GenericParams.TryAdd(p, f) |> ignore
+          | (FsFunc (fi, fo)), (FsFunc (pi, po)) ->
             handle fi pi s
             handle fo po s
+            
           | _ -> ()
         handle f p.ParameterType s
 
@@ -124,22 +128,22 @@ module FscHost =
           let v = Var(p.Name, f)
           Expr.Lambda(v, build fs' ps' { s with Vars = v::s.Vars })
 
-        | (FsTuple us as f)::fs', p::ps' ->
+        | (FsTuple us as f)::_, p::ps' when s.Index < us.Length ->
+          
+          handleGenerics us.[s.Index] p s
+          let v = Var($"{p.Name}_{s.Index}", us.[s.Index])
+          let expr tv = Expr.Let(v, Expr.TupleGet(Expr.Var tv, s.Index),
+            build fs ps' {s with Vars = v::s.Vars; Index = s.Index+1; TupleVar = Some tv})
+
+          match s.TupleVar with
+          | Some tv -> expr tv
+          | None -> 
+            let tupleVar = Var("tupledArg", f)
+            Expr.Lambda(tupleVar, expr tupleVar)
+
+        | (FsTuple _ as f)::fs', p::_ ->
           handleGenerics f p s
-
-          if s.Index < us.Length then
-            let v = Var($"{p.Name}_{s.Index}", us.[s.Index])
-            let expr tv = Expr.Let(v, Expr.TupleGet(Expr.Var tv, s.Index),
-              build fs ps' {s with Vars = v::s.Vars; Index = s.Index+1; TupleVar = Some tv})
-
-            match s.TupleVar with
-            | Some tv -> expr tv
-            | None -> 
-              let tupleVar = Var("tupledArg", f)
-              Expr.Lambda(tupleVar, expr tupleVar)
-          else
-            build fs' ps { s with Index = 0; TupleVar = None }
-
+          build fs' ps { s with Index = 0; TupleVar = None }
         | (FsFunc _ as f)::fs', p::ps' ->
           handleGenerics f p s
           let v = Var(p.Name, f)

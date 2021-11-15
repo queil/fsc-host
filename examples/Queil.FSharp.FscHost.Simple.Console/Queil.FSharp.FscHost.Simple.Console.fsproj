@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Queil.FSharp.FscHost" Version="0.14.0-alpha.2" />
+    <PackageReference Update="FSharp.Core" Version="6.0.1" />
+  </ItemGroup>
+
+</Project>

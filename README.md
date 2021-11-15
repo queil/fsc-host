@@ -83,7 +83,7 @@ Primes of the day:
 
 ## APIs
 
-There are to levels of public APIs in the lib:
+There are two levels of public APIs in the lib:
 
 * basic - the `CompilerHost.getMember` functions family. They take a script and options as the input and return a tuple of extracted member(s).
   [Example](examples/Simple)

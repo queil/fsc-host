@@ -82,7 +82,7 @@ module CompilerHost =
       let path = script |> getScriptFilePath
       script |> createInlineScriptFile path
       path
-    
+
     let compileScript (filePath:string) (options: Options) (resolveNugets:string -> Async<string seq>) : Async<Assembly> =
 
       let log = options.Logger

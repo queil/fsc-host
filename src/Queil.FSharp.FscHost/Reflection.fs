@@ -23,7 +23,6 @@ module internal Reflection =
     Index: int
     TupleVar: Var option
     GenericParams: Dictionary<Type, Type>
-
   }
   with
     static member Empty = {

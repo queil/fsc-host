@@ -7,7 +7,8 @@ compiled scripts.
 
 ## What is supported
 
-* accessing script members on the host side in a strongly-typed way (please note: if the members are not of expected types they will fail casting causing a runtime exception - there is no magic that could fix it)   
+* Accessing script members on the host side in a strongly-typed way (please note: if the members are not of expected types they will fail casting causing a runtime exception - there is no magic that could fix it)   
+* Consuming values and functions (including generics)
 * Referencing NuGet packages and other scripts via the usual [`#r` directive](https://docs.microsoft.com/en-us/dotnet/fsharp/tools/fsharp-interactive/#referencing-packages-in-f-interactive)
 * Controlling compilation options
 * Basic assembly caching (opt-in via options - so far invalidation is only supported for the root script file)
@@ -26,7 +27,7 @@ This project is still in v0 which means the public API hasn't stabilised yet and
 1. Create a console app and add the package
 
 ```
-dotnet new console -lang F# --name fsc-host-test && cd fsc-host-test && dotnet add package Queil.FSharp.FscHost --version 0.13.1
+dotnet new console -lang F# --name fsc-host-test && cd fsc-host-test && dotnet add package Queil.FSharp.FscHost --version 0.14.0
 ```
 
 2. Save the below as `script.fsx`:
@@ -47,9 +48,9 @@ try
   // compile a script and retrieve two properties out of it
   let getScriptProperties () =
     File "script.fsx"
-    |> CompilerHost.getScriptProperties2 Options.Default
-         (Property<string -> string>.Path "Script.helloFromScript")
-         (Property<int list>.Path "Script.myPrimes")
+    |> CompilerHost.getMember2 Options.Default
+         (Member<string -> string>.Path "Script.helloFromScript")
+         (Member<int list>.Path "Script.myPrimes")
 
   let (helloWorld, primesOfTheDay) = getScriptProperties () |> Async.RunSynchronously
 
@@ -79,6 +80,16 @@ Primes of the day:
 5
 
 ```
+
+## APIs
+
+The public API of this library comes in two flavours:
+
+* basic - the `CompilerHost.getMember` functions family. They take a script and options as the input and return a tuple of extracted member(s).
+  [Example](examples/Simple)
+
+* compile'n'extract - `CompilerHost.getAssembly` can be used to compile a script into an assembly (which is automatically loaded). Then members can be extracted with `Member.get` function. This API gives more flexibility and enables using generic functions. 
+  [Example](examples/CompileAndExtract)
 
 ## Resources
 

@@ -16,7 +16,7 @@ let invoke<'a> (func:unit -> 'a) =
   | ScriptCompileError errors -> 
     failwithf "%s" (errors |> String.concat "\n")
   | ScriptMemberHasInvalidType (propertyName, actualTypeSignature) ->
-    printfn "Diagnostics: Property '%s' should be of type '%s' but is '%s'" propertyName (typeof<'a>.Name) actualTypeSignature
+    printfn "Diagnostics: Property '%s' should be of type '%s' but is '%s'" propertyName (typeof<'a>.ToString()) actualTypeSignature
     reraise ()
 
 [<Tests>]
@@ -32,7 +32,7 @@ module Countries =
 """
       let result = invoke <| fun () ->
         Inline script 
-          |> CompilerHost.getScriptProperty options (Property<string list>.Path "Test.Script.Countries.myList") |> Async.RunSynchronously
+          |> CompilerHost.getMember options (Member<string list>.Path "Test.Script.Countries.myList") |> Async.RunSynchronously
       
       "Lists should be equal" |> Expect.equal result ["UK"; "Poland"; "France"]
     }
@@ -46,7 +46,7 @@ let myFunc = myFuncOrig
 """
       let myFunc = invoke <| fun () ->
         Inline script
-          |> CompilerHost.getScriptProperty options (Property<string ->string>.Path "Test.Script.myFunc") |> Async.RunSynchronously
+          |> CompilerHost.getMember options (Member<string ->string>.Path "Test.Script.myFunc") |> Async.RunSynchronously
       
       let callResult = myFunc "TEST 109384"
 
@@ -64,7 +64,7 @@ let myFunc = myFuncOrig
       Expect.throwsC (fun () ->
               invoke <| fun () ->
                 Inline script
-                |> CompilerHost.getScriptProperty options (Property<string -> int>.Path "Test.Script.myFunc" )
+                |> CompilerHost.getMember options (Member<string -> int>.Path "Test.Script.myFunc" )
                 |> Async.RunSynchronously
                 |> ignore)
                 
@@ -85,9 +85,9 @@ module Countries =
 """
       let result = invoke <| fun () ->
         Inline script |>
-          CompilerHost.getScriptProperties2 options
-            (Property<string list>.Path "Test.Script.Countries.myList")
-            (Property<int>.Path "Test.Script.Countries.myCount")
+          CompilerHost.getMember2 options
+            (Member<string list>.Path "Test.Script.Countries.myList")
+            (Member<int>.Path "Test.Script.Countries.myCount")
             
              |> Async.RunSynchronously
 
@@ -106,10 +106,10 @@ module Countries =
 """
       let result = invoke <| fun () ->
         Inline script |>
-          CompilerHost.getScriptProperties3 options
-            (Property<string list>.Path "Test.Script.Countries.myList")
-            (Property<int>.Path "Test.Script.Countries.myCount")
-            (Property<float>.Path "Test.Script.Countries.myFloat")
+          CompilerHost.getMember3 options
+            (Member<string list>.Path "Test.Script.Countries.myList")
+            (Member<int>.Path "Test.Script.Countries.myCount")
+            (Member<float>.Path "Test.Script.Countries.myFloat")
             
              |> Async.RunSynchronously
 
@@ -129,11 +129,11 @@ module Countries =
 """
       let result = invoke <| fun () ->
         Inline script |>
-          CompilerHost.getScriptProperties4 options
-            (Property<string list>.Path "Test.Script.Countries.myList")
-            (Property<int>.Path "Test.Script.Countries.myCount")
-            (Property<float>.Path "Test.Script.Countries.myFloat")
-            (Property<Map<string,int>>.Path "Test.Script.Countries.myMap")
+          CompilerHost.getMember4 options
+            (Member<string list>.Path "Test.Script.Countries.myList")
+            (Member<int>.Path "Test.Script.Countries.myCount")
+            (Member<float>.Path "Test.Script.Countries.myFloat")
+            (Member<Map<string,int>>.Path "Test.Script.Countries.myMap")
             
              |> Async.RunSynchronously
 
@@ -169,7 +169,7 @@ let myFunc () = Json.Pointer.JsonPointer.Parse("/some").ToString()
 """
       let myFunc = invoke <| fun () ->
         Inline script |>
-          CompilerHost.getAssembly options |> Async.RunSynchronously |> Property.get<unit -> string> "Test.Script.myFunc"
+          CompilerHost.getAssembly options |> Async.RunSynchronously |> Member.get<unit -> string> "Test.Script.myFunc"
       
       "Value should match" |> Expect.equal (myFunc ()) "/some"
     }
@@ -186,7 +186,7 @@ let export = "NOT_WORKED"
       invoke <| fun () ->
         let value =
           Inline script |>
-            CompilerHost.getAssembly opts |> Async.RunSynchronously |> Property.get<string> "Test.Script.export"
+            CompilerHost.getAssembly opts |> Async.RunSynchronously |> Member.get<string> "Test.Script.export"
         "Value should match" |> Expect.equal value "WORKED"
     }
   
@@ -207,9 +207,9 @@ module Func =
 """
       let (resultFunc, sideEffect) = invoke <| fun () ->
         Inline script |>
-          CompilerHost.getScriptProperties2 options
-            (Property<(float * int) -> string -> int -> unit option -> string>.Path "Test.Script.Func.myFunc")
-            (Property<unit -> unit>.Path "Test.Script.Func.sideEffect")
+          CompilerHost.getMember2 options
+            (Member<(float * int) -> string -> int -> unit option -> string>.Path "Test.Script.Func.myFunc")
+            (Member<unit -> unit>.Path "Test.Script.Func.sideEffect")
              |> Async.RunSynchronously
 
       let result = resultFunc (2.0, 8) "expected" 451 (Some ())
@@ -218,26 +218,65 @@ module Func =
       "Lists should be equal" |> Expect.equal result "tuple2: (2.000000, 8) - text: expected - number: 451 - unit option: Some ()"
     }
 
-    test "Should handle two tuples in func" {
+    test "Should handle two decomposed tuples in func" {
       let script = """
 namespace Test.Script
 
 module Func =
-  let myFunc (tuple1:float * int) (tuple2: string * string) = 
+
+  let myFunc (tuple1:float * int) (tuple2: ('a -> string) * (string -> 'a)) = 
     
     let (t1f, t1i) = tuple1
     let (t2s, t2s') = tuple2
-    sprintf "tuple1: (%f, %i) - tuple2: (%s, %s)" t1f t1i t2s t2s'
+    sprintf "tuple1: (%f, %i) - tuple2: (%s, %A)" t1f t1i (t2s ()) (t2s' "")
 
 """
       let (resultFunc) = invoke <| fun () ->
         Inline script |>
-          CompilerHost.getScriptProperty options
-            (Property<(float * int) -> (string * string) -> string>.Path "Test.Script.Func.myFunc")
+          CompilerHost.getMember options
+            (Member<(float * int) -> ((_ -> string) * (string -> _))-> string>.Path "Test.Script.Func.myFunc")
+             |> Async.RunSynchronously
+      //this tests fails when the unit in fun () -> "test" is replaced by fun x -> "test"
+      let result = resultFunc (2.0, 8) ((fun () -> "test"), (fun _ -> ()))
+      
+      "Lists should be equal" |> Expect.equal result "tuple1: (2.000000, 8) - tuple2: (test, ())"
+    }
+
+    test "Should handle non-decomposed tuples in func" {
+      let script = """
+namespace Test.Script
+
+module Func =
+  let myFunc something = sprintf "Generic: %A" something
+
+"""
+      let (resultFunc) = invoke <| fun () ->
+        Inline script |>
+          CompilerHost.getMember options
+            (Member<_ -> string>.Path "Test.Script.Func.myFunc")
              |> Async.RunSynchronously
 
-      let result = resultFunc (2.0, 8) ("expected", "999")
+      let result = resultFunc (2.0, 8)
       
-      "Lists should be equal" |> Expect.equal result "tuple1: (2.000000, 8) - tuple2: (expected, 999)"
+      "Values should be equal" |> Expect.equal result "Generic: (2.0, 8)"
+    }
+
+    test "Should handle fully generic method with tuples in func" {
+      let script = """
+namespace Test.Script
+
+module Func =
+  let myFunc something toB : 'b = something |> toB
+
+"""
+      let (resultFunc) = invoke <| fun () ->
+        Inline script |>
+          CompilerHost.getMember options
+            (Member<_ -> (_ -> _) -> _>.Path "Test.Script.Func.myFunc")
+             |> Async.RunSynchronously
+
+      let result = resultFunc (2.0, 8) <| fun (a, b) -> sprintf "Generic: (%f, %i)" a b
+      
+      "Values should be equal" |> Expect.equal result "Generic: (2.000000, 8)"
     }
  ]

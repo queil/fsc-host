@@ -81,6 +81,16 @@ Primes of the day:
 
 ```
 
+## APIs
+
+There are to levels of public APIs in the lib:
+
+* basic - the `CompilerHost.getMember` functions family. They take a script and options as the input and return a tuple of extracted member(s).
+  [Example](examples/Simple)
+
+* compile'n'extract - `CompilerHost.getAssembly` can be used to compile a script into an assembly (which is automatically loaded). Then members can be extracted with `Member.get` function. This API gives more flexibility and enables using generic functions. 
+  [Example](examples/CompileAndExtract)
+
 ## Resources
 
 * [My blog post about the package](https://queil.net/2021/10/embedding-fsharp-compiler-fsc-host-nuget/)

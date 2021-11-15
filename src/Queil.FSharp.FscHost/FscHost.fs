@@ -43,7 +43,7 @@ with
       Symbols = []
     }
 
-type Options = 
+type Options =
   {
     Compiler: CompilerOptions
     UseCache: bool

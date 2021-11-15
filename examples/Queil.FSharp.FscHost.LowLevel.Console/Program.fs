@@ -16,20 +16,14 @@ module Script =
   let myPrimes =
     assembly |> Member.get<int list> "Script.myPrimes"
 
-try
-  let myName = "Console Example"
-  myName |> Script.helloFromScript |> printfn "%s"
+open Script
 
-  printfn "Primes of the day: "
-  Script.myPrimes |> Seq.iter (printfn "%i")
+let myName = "Console Example"
+myName |> helloFromScript |> printfn "%s"
 
-  printfn "Generics are supported:"
-  Script.generic (10, "test") |> printfn "%s"
-  Script.generic (true, 19.0M) |> printfn "%s"
+printfn "Primes of the day: "
+myPrimes |> Seq.iter (printfn "%i")
 
-with
-// you can handle more exceptions from the CompilerHost here
-| ScriptMemberNotFound(memberName, foundProperties) ->
-  printfn "Couldn't find member: '%s'" memberName
-  printfn "Found members: "
-  foundProperties |> Seq.iter(printfn "%s")
+printfn "Generics are supported:"
+generic (10, "test") |> printfn "%s"
+generic (true, 19.0M) |> printfn "%s"

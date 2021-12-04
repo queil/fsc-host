@@ -14,6 +14,11 @@ compiled scripts.
 * Basic assembly caching (opt-in via options - so far invalidation is only supported for the root script file)
 * Basic logging (by passing a logging func via options)
 
+## What is planned
+
+[ ] Invalidate cache on any change in the whole script dependency tree. It only works for the root file at the moment.
+[ ] A new API allowing scripts to become a dynamic implementation for an interface/module (to avoid referencing scripts members by strings)
+
 ## Requirements
 
 * .NET SDK 6 (it is convenient to package apps using `fsc-host` as Docker images)

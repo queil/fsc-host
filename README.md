@@ -18,6 +18,7 @@ compiled scripts.
 
 * [ ] Invalidate cache on any change in the whole script dependency tree. It only works for the root file at the moment.
 * [ ] A new API allowing scripts to become a dynamic implementation for an interface/module (to avoid referencing scripts members by strings)
+* [ ] Design a logo :smiley:
 
 ## Requirements
 

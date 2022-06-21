@@ -21,8 +21,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.Compiler.Service" Version="41.0.1" />
-    <PackageReference Update="FSharp.Core" Version="6.0.1" />
+    <PackageReference Include="FSharp.Compiler.Service" Version="41.0.5" />
+    <PackageReference Update="FSharp.Core" Version="6.*" />
   </ItemGroup>
 
 </Project>

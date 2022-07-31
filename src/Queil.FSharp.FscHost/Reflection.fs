@@ -5,6 +5,7 @@ open FSharp.Reflection
 open System
 open System.Collections.Generic
 open System.Reflection
+open Queil.FSharp.FscHost
 
 module internal Reflection =
 
@@ -97,14 +98,21 @@ module internal Reflection =
 module Member =
   open FSharp.Linq.RuntimeHelpers
   
+  type DiscoveryOptions = {
+    comparison: StringComparison
+  }
+  
   /// Retrieves a type member given by fully-qualified path from an assembly
-  let get<'a> (memberPath:string) (assembly:Assembly) =
+  let getCore<'a> (options:DiscoveryOptions) (memberPath:string) (assembly:Assembly) =
 
-    let (fqTypeName, memberName) =
+    let fqTypeName, memberName =
       let splitIndex = memberPath.LastIndexOf(".")
       memberPath.[0..splitIndex - 1], memberPath.[splitIndex + 1..]
 
-    let candidates = assembly.GetTypes() |> Seq.where (fun t -> t.FullName = fqTypeName) |> Seq.toList
+    let candidates =
+      assembly.GetTypes()
+      |> Seq.where (fun t -> t.FullName.Equals(fqTypeName, options.comparison))
+      |> Seq.toList
     
     let tryCast (actualType:string) (value:obj) =
       try
@@ -134,3 +142,6 @@ module Member =
     | [t] -> raise (ScriptMemberNotFound (memberPath, t.GetMembers() |> Seq.map (fun p -> $"{p.MemberType}: {p.Name}") |> Seq.toList))
     | [] -> raise (ExpectedMemberParentTypeNotFound memberPath)
     | _ -> raise (MultipleMemberParentTypeCandidatesFound memberPath)
+
+  /// Retrieves a type member given by fully-qualified path from an assembly using StringComparison.CurrentCulture for comparing names
+  let get<'a> (memberPath:string) (assembly:Assembly) = getCore<'a> { comparison = StringComparison.CurrentCulture } memberPath assembly

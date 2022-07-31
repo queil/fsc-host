@@ -14,7 +14,7 @@ module CE =
       }
 
   and PluginBuilder<'a>() =
-     
+
      [<CustomOperation("file")>]
      member x.File(state: State<'a>, path: string) =
        {state with filePath = Some path}
@@ -22,22 +22,14 @@ module CE =
      member x.Delay(f: unit -> State<'a>) = f ()
      
      member x.Combine(builder: State<'a>, newState: State<'a>) =
-       { builder with
-            filePath = newState.filePath
-            plugin = newState.plugin
-       }
-     
+      { builder with
+          filePath = newState.filePath
+          plugin = newState.plugin
+      }
+
      member x.Yield (plugin: 'a) : State<'a> =
-       {State<'a>.Default with plugin = Some plugin}
-  
-     //member x.Return (plugin: 'a) =  {State<'a>.Default with plugin = Some plugin}
-     
-     member x.For(seq2:seq<'a>, func: 'a -> State<'a>) =
-       seq {
-         for x in seq2 do
-           yield func x 
-       }
-       
+       {State.Default with plugin = Some plugin}
+
      member x.Run(state: State<'a>) =
        state.plugin
   
@@ -56,6 +48,7 @@ module Test =
         
         yield 3
         yield 6
+        yield 9
         
     }
     

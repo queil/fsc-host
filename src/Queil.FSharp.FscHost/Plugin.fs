@@ -1,82 +1,100 @@
 namespace Queil.FSharp.FscHost
 
 open Queil.FSharp.FscHost
-
+open System
 module Plugin =
   
   type PluginOptions =
     {
       script: Script
+      dir: string
       bindingName: string
       options: Options
     }
-
     with
       static member internal Default: PluginOptions = {
-        script = Inline ""
+        script = File "plugin.fsx"
         bindingName = "plugin"
+        dir = "plugins/default"
         options = Options.Default
       }
   
-  type PluginBase<'a>(state: PluginOptions) =      
-      member x.State = state
-      member x.Yield _ = x
-      member x.Run(state: PluginOptions) =
-        async {
-          let! asm = state.script |> CompilerHost.getAssembly state.options          
-
-          let candidateTypes =
-            asm.GetTypes()
-            |> Seq.sortBy (fun typ -> typ.FullName.Split('+', '.').Length)
-            |> Seq.tryFind (fun typ -> match typ.GetMember(state.bindingName) |> Seq.toList with | [] -> false | _ -> true)
-            |> Option.toList
-
-          return Member.getCore<'a> candidateTypes state.bindingName
-        }
-      
-      /// Controls script caching behaviour. Default: caching is off
-      [<CustomOperation("cache")>]
-      member x.Cache(state: PluginOptions, useCache: bool) =
-        let options = {state.options with UseCache = useCache} 
-        { state with options = options }
-      
-      /// Enables a custom logging function
-      [<CustomOperation("log")>]
-      member x.Log(state: PluginOptions, logFun: string -> unit) =
-        let options = {state.options with Logger =  logFun} 
-        { state with options = options }
-     
-      /// Defines the name of a binding to extract. Default: plugin
-      [<CustomOperation("binding")>]
-      member x.Binding(state: PluginOptions, name: string) =
-        { state with bindingName = name }
-      
-      /// Enables customization of a subset of compiler options
-      [<CustomOperation("compiler")>]
-      member x.Compiler(state: PluginOptions, configure: CompilerOptions -> CompilerOptions) =
-         let compiler = configure state.options.Compiler
-         let options = { state.options with Compiler = compiler }
-         { state with options = options }
-  type InlineScriptPlugin<'a>(state: PluginOptions) =
-     inherit PluginBase<'a>(state)
-     
-     /// Defines the body of a script to compile
-     [<CustomOperation("body")>]
-     member x.Body(state: PluginBase<'a>, script: string) =
-       { state.State with script = Inline script }        
-
-  type FileScriptPlugin<'a>(state: PluginOptions) =
-     inherit PluginBase<'a>(state)
-     
-     /// Defines file path of an F# script (fsx) to compile
-     [<CustomOperation("path")>]
-     member x.Path(state: PluginBase<'a>, path: string) =
-       { state.State with script = File path }
-
-  /// Compiles an F# script given by 'body' and extracts the value of 'let plugin = ...' binding
-  /// If multiple bindings are found it extracts the value of the least nested one.
-  let plugin_inline<'a> = InlineScriptPlugin<'a>(PluginOptions.Default)
+  type CommonBuilder(state: PluginOptions) =
+     member x.State = state
   
-  /// Compiles an F# script file given by 'path' and extracts the value of 'let plugin = ...' binding.
+  type BodyBuilder(state: PluginOptions) =
+    inherit CommonBuilder(state)
+ 
+  type FileBuilder(state: PluginOptions) =
+    inherit CommonBuilder(state)
+   
+  type Plugin<'a>(state: PluginOptions) =
+
+    member x.State = state
+    member x.Yield _ = x
+    member x.Run(state: CommonBuilder) =
+      async {
+        let script =
+          match state.State.script with
+          | File f -> File (IO.Path.Combine(state.State.dir, f))
+          | s -> s
+        let! asm = script |> CompilerHost.getAssembly state.State.options          
+
+        let candidateTypes =
+          asm.GetTypes()
+          |> Seq.sortBy (fun typ -> typ.FullName.Split('+', '.').Length)
+          |> Seq.tryFind (fun typ -> match typ.GetMember(state.State.bindingName) |> Seq.toList with | [] -> false | _ -> true)
+          |> Option.toList
+
+        return Member.getCore<'a> candidateTypes state.State.bindingName
+      }
+    
+    /// Controls script caching behaviour. Default: caching is off
+    [<CustomOperation("cache")>]
+    member x.Cache(state: CommonBuilder, useCache: bool) =
+      let options = {state.State.options with UseCache = useCache} 
+      CommonBuilder { state.State with options = options }
+    
+    /// Enables a custom logging function
+    [<CustomOperation("log")>]
+    member x.Log(state: CommonBuilder, logFun: string -> unit) =
+      let options = {state.State.options with Logger =  logFun} 
+      CommonBuilder { state.State with options = options }
+     
+     /// Defines the name of a binding to extract. Default: plugin
+    [<CustomOperation("binding")>]
+    member x.Binding(state: CommonBuilder, name: string) =
+      CommonBuilder { state.State with bindingName = name }
+      
+    /// Enables customization of a subset of compiler options
+    [<CustomOperation("compiler")>]
+    member x.Compiler(state: CommonBuilder, configure: CompilerOptions -> CompilerOptions) =
+      let compiler = configure state.State.options.Compiler
+      let options = { state.State.options with Compiler = compiler }
+      CommonBuilder { state.State with options = options }
+      
+    /// The directory plugin gets loaded from. Default: plugins/default
+    [<CustomOperation("dir")>]
+    member x.Dir(state: FileBuilder, dir: string) =
+      FileBuilder { state.State with dir = dir }
+
+    /// Sets plugin script file name. Default: plugin.fsx
+    [<CustomOperation("file")>]
+    member x.File(state: CommonBuilder, file: string) =
+      FileBuilder({ state.State with script = File file })
+
+    /// Defines the body of a script to compile
+    [<CustomOperation("body")>]
+    member x.Body(state: Plugin<'a>, script: string) =
+      BodyBuilder { state.State with script = Inline script }
+     
+    /// Loads a plugin with default configuration. 
+    /// It expects ./plugins/default/plugin.fsx with 'let plugin = ... ' binding matching the
+    /// specified plugin type.
+    [<CustomOperation("load")>]
+    member x.Load(state: Plugin<'a>) =
+      FileBuilder state.State
+  
+  /// Compiles an F# script either defined by 'body' or 'load'
   /// If multiple bindings are found it extracts the value of the least nested one.
-  let plugin<'a> = FileScriptPlugin<'a>(PluginOptions.Default)
+  let plugin<'a> = Plugin<'a>(PluginOptions.Default)

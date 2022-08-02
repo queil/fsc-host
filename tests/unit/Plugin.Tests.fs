@@ -10,7 +10,7 @@ let ceTests =
     
     testAsync "Inline script" {
       let! plugin =
-        plugin_inline<string option> {
+        plugin<string option> {
           body """let plugin = Some "test971" """
           log (fun s -> printfn $"%s{s}")
         }
@@ -20,7 +20,7 @@ let ceTests =
     
     testAsync "Inline script - w/cache" {
       let! plugin =
-        plugin_inline<string option> {
+        plugin<string option> {
           body """let plugin = Some "test971" """
           cache true
           log (fun s -> printfn $"%s{s}")
@@ -31,7 +31,7 @@ let ceTests =
    
     testAsync "Inline script - nested duplicate properties" {
       let! plugin =
-        plugin_inline<string option> {
+        plugin<string option> {
           body """
 let plugin = Some "test971"
 
@@ -52,7 +52,9 @@ module OtherPlugin =
       
       let! plugin =
         plugin<string option> {
-          path fileName
+          load
+          dir "/tmp"
+          file "plugin.builder.file.fsx"
           cache true
           compiler (fun x -> { x with LangVersion = Some "preview" } )
         }
@@ -67,7 +69,9 @@ module OtherPlugin =
       
       let! plugin =
         plugin<string option> {
-          path fileName
+          load
+          dir "/tmp"
+          file "plugin.builder.binding.file.fsx"
           binding "export"
           cache true
           compiler (fun x -> { x with LangVersion = Some "preview" } )

@@ -34,7 +34,7 @@ module Plugin =
           return Member.getCore<'a> candidateTypes state.bindingName
         }
       
-      /// Controls script caching behaviour
+      /// Controls script caching behaviour. Default: caching is off
       [<CustomOperation("cache")>]
       member x.Cache(state: PluginOptions, useCache: bool) =
         let options = {state.options with UseCache = useCache} 

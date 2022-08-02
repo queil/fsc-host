@@ -23,16 +23,15 @@ module Plugin =
       member x.Yield _ = x
       member x.Run(state: PluginOptions) =
         async {
-          let! asm = state.script |> CompilerHost.getAssembly state.options
-          let expectedMemberName = state.bindingName
-          
+          let! asm = state.script |> CompilerHost.getAssembly state.options          
+
           let candidateTypes =
             asm.GetTypes()
             |> Seq.sortBy (fun typ -> typ.FullName.Split('+', '.').Length)
-            |> Seq.tryFind (fun typ -> match typ.GetMember(expectedMemberName) |> Seq.toList with | [] -> false | _ -> true)
+            |> Seq.tryFind (fun typ -> match typ.GetMember(state.bindingName) |> Seq.toList with | [] -> false | _ -> true)
             |> Option.toList
 
-          return Member.getCore<'a> candidateTypes expectedMemberName
+          return Member.getCore<'a> candidateTypes state.bindingName
         }
       
       /// Controls script caching behaviour

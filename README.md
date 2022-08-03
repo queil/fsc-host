@@ -33,7 +33,7 @@ This project is still in v0 which means the public API hasn't stabilised yet and
 1. Create a console app and add the package
 
 ```
-dotnet new console -lang F# --name fsc-host-test && cd fsc-host-test && dotnet add package Queil.FSharp.FscHost --version 0.14.0
+dotnet new console -lang F# --name fsc-host-test && cd fsc-host-test && dotnet add package Queil.FSharp.FscHost --version 0.16.0
 ```
 
 2. Save the below as `script.fsx`:
@@ -89,7 +89,10 @@ Primes of the day:
 
 ## APIs
 
-The public API of this library comes in two flavours:
+The public API of this library comes in three flavours:
+
+* plugin - high-level, declarative, and it's the recommended API to use.
+  [Example](examples/Plugin)
 
 * basic - the `CompilerHost.getMember` functions family. They take a script and options as the input and return a tuple of extracted member(s).
   [Example](examples/Simple)

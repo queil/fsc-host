@@ -1,1 +1,1 @@
-let plugin (s:string) =  printfn $"HELLO: %s{s}"
+let plugin (s:string) = printfn $"HELLO: %s{s}"

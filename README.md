@@ -1,10 +1,27 @@
 # fsc-host [![Build Status](https://dev.azure.com/queil/fsc-host/_apis/build/status/queil.fsc-host?branchName=main)](https://dev.azure.com/queil/fsc-host/_build/latest?definitionId=3&branchName=main)  [![NuGet Badge](https://buildstats.info/nuget/Queil.FSharp.FscHost?includePreReleases=true)](https://www.nuget.org/packages/Queil.FSharp.FscHost) [![Coverage](https://img.shields.io/azure-devops/coverage/queil/fsc-host/3?style=flat)](https://img.shields.io/azure-devops/coverage/queil/fsc-host/3?style=plastic)
 
-## Host the F# compiler in your own apps.
+## Extend your F# apps with F# scripts.
 
 You can easily extend your applications by calling functions and retrieving values on runtime from dynamically 
-compiled scripts.
+compiled scripts. A bare minimum example (Plugin API):
 
+##### plugins/default/plugin.fsx (Plugin)
+```fsharp
+let plugin (s:string) = printfn $"HELLO: %s{s}"
+```
+##### Program.fs (Host)
+```fsharp
+let myWriter =
+  plugin<string -> unit> {
+    load
+  } |> Async.RunSynchronously
+myWriter $"I hereby send the message"
+```
+##### Output
+
+```
+HELLO: I hereby send the message
+```
 ## What is supported
 
 * Accessing script members on the host side in a strongly-typed way (please note: if the members are not of expected types they will fail casting causing a runtime exception - there is no magic that could fix it)   
@@ -17,7 +34,7 @@ compiled scripts.
 ## What is planned
 
 * [ ] Invalidate cache on any change in the whole script dependency tree. It only works for the root file at the moment.
-* [ ] A new API allowing scripts to become a dynamic implementation for an interface/module (to avoid referencing scripts members by strings)
+* [ ] ~~A new API allowing scripts to become a dynamic implementation for an interface/module (to avoid referencing scripts members by strings)~~ Plugin API provided instead
 * [ ] Design a logo :smiley:
 
 ## Requirements
@@ -28,7 +45,7 @@ compiled scripts.
 
 This project is still in v0 which means the public API hasn't stabilised yet and breaking changes may happen between minor versions. Breaking changes are indicated in the release notes in GitHub releases. 
 
-## Example
+## Example (Basic API)
 
 1. Create a console app and add the package
 

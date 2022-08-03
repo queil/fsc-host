@@ -2,7 +2,7 @@
 
 ## Extend your F# apps with F# scripts.
 
-You can easily extend your applications by calling functions and retrieving values on runtime from dynamically 
+You can easily extend your applications by calling functions and retrieving values on run time from dynamically 
 compiled scripts. A bare minimum example (Plugin API):
 
 ##### plugins/default/plugin.fsx (Plugin)

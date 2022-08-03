@@ -5,6 +5,7 @@ open FSharp.Reflection
 open System
 open System.Collections.Generic
 open System.Reflection
+open Queil.FSharp.FscHost
 
 module internal Reflection =
 
@@ -98,13 +99,11 @@ module Member =
   open FSharp.Linq.RuntimeHelpers
   
   /// Retrieves a type member given by fully-qualified path from an assembly
-  let get<'a> (memberPath:string) (assembly:Assembly) =
+  let getCore<'a> (candidates: Type list) (memberPath:string) =
 
-    let (fqTypeName, memberName) =
+    let memberName =
       let splitIndex = memberPath.LastIndexOf(".")
-      memberPath.[0..splitIndex - 1], memberPath.[splitIndex + 1..]
-
-    let candidates = assembly.GetTypes() |> Seq.where (fun t -> t.FullName = fqTypeName) |> Seq.toList
+      memberPath[splitIndex + 1..]
     
     let tryCast (actualType:string) (value:obj) =
       try
@@ -134,3 +133,16 @@ module Member =
     | [t] -> raise (ScriptMemberNotFound (memberPath, t.GetMembers() |> Seq.map (fun p -> $"{p.MemberType}: {p.Name}") |> Seq.toList))
     | [] -> raise (ExpectedMemberParentTypeNotFound memberPath)
     | _ -> raise (MultipleMemberParentTypeCandidatesFound memberPath)
+
+  /// Retrieves a type member given by fully-qualified path from an assembly using StringComparison.CurrentCulture for comparing names
+  let get<'a> (memberPath:string) (assembly:Assembly) =
+    let fqTypeName =
+      let splitIndex = memberPath.LastIndexOf(".")
+      memberPath[0..splitIndex - 1]
+
+    let candidateTypes =
+      assembly.GetTypes()
+      |> Seq.where (fun typ -> typ.FullName = fqTypeName)
+      |> Seq.toList
+    
+    getCore<'a> candidateTypes memberPath

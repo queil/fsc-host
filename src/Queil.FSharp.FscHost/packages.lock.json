@@ -4,11 +4,11 @@
     ".NETStandard,Version=v2.1": {
       "FSharp.Compiler.Service": {
         "type": "Direct",
-        "requested": "[41.0.5, )",
-        "resolved": "41.0.5",
-        "contentHash": "p88YDZYJCnuQRqnWnN9kcklHzEVy0vEEnjZ0e+/fszAASEInoAzkfs4SxTTrgsw7ey+hmbkjYjvcbC8Ed1Xa4Q==",
+        "requested": "[41.*, )",
+        "resolved": "41.0.6",
+        "contentHash": "torQ+SBJXue1ykejSWRA2ZpHuqssfRvI+RoEVh8HiSjf70GXd2Ntnw5k4/Y2TwqZfhOwjUj4a52y1nY+wBRDDw==",
         "dependencies": {
-          "FSharp.Core": "[6.0.5]",
+          "FSharp.Core": "[6.0.6]",
           "Microsoft.Build.Framework": "17.0.0",
           "Microsoft.Build.Tasks.Core": "17.0.0",
           "Microsoft.Build.Utilities.Core": "17.0.0",
@@ -39,8 +39,8 @@
       "FSharp.Core": {
         "type": "Direct",
         "requested": "[6.*, )",
-        "resolved": "6.0.5",
-        "contentHash": "FwdQVtpj34xt8vKyFUUeNIS+obWlEnSrSW7y1ivRVts/ZsrUsKyOd0bZehgFhWdnB/NBsa9DCWvNFMTO0XDFcg=="
+        "resolved": "6.0.6",
+        "contentHash": "oSbTFqPtsp+EGkWAHwYIYYHyXLJRnbzVwcmM06kmXNLdWsp3P6XZViPSJJ2qUQS8feNK+nyPA0qtpNZXANGB7w=="
       },
       "Microsoft.Build.Framework": {
         "type": "Transitive",

@@ -3,8 +3,8 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <Authors>queil</Authors>
-    <Description>Host the F# compiler in your own apps</Description>
-    <Copyright>2021 © queil</Copyright>
+    <Description>Extend your F# apps with F# scripts</Description>
+    <Copyright>2021 - 2022 © queil</Copyright>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <RepositoryUrl>https://github.com/queil/fsc-host</RepositoryUrl>
     <FsDocsSourceRepository>https://github.com/queil/fsc-host/tree/main</FsDocsSourceRepository>
@@ -22,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.Compiler.Service" Version="41.0.5" />
+    <PackageReference Include="FSharp.Compiler.Service" Version="41.*" />
     <PackageReference Update="FSharp.Core" Version="6.*" />
   </ItemGroup>
 

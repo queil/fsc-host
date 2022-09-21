@@ -40,7 +40,7 @@ HELLO: I hereby send the message
 
 ## Requirements
 
-* .NET SDK 6 (it is convenient to package apps using `fsc-host` as Docker images)
+* .NET SDK (it is convenient to package apps using `fsc-host` as Docker images)
 
 ## Warning
 

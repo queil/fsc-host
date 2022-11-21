@@ -12,9 +12,7 @@ let options =
 let invoke<'a> (func:unit -> 'a) =
   try
     func ()
-  with 
-  | ScriptCompileError errors -> 
-    failwithf "%s" (errors |> String.concat "\n")
+  with
   | ScriptMemberHasInvalidType (propertyName, actualTypeSignature) ->
     printfn $"Diagnostics: Property '%s{propertyName}' should be of type '%s{typeof<'a>.ToString()}' but is '%s{actualTypeSignature}'"
     reraise ()

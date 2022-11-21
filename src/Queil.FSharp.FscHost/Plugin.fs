@@ -61,7 +61,7 @@ module Plugin =
       let options = {state.State.options with Logger =  logFun} 
       CommonBuilder { state.State with options = options }
      
-     /// Defines the name of a binding to extract. Default: plugin
+    /// Defines the name of a binding to extract. Default: plugin
     [<CustomOperation("binding")>]
     member x.Binding(state: CommonBuilder, name: string) =
       CommonBuilder { state.State with bindingName = name }

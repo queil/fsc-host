@@ -1,11 +1,18 @@
 module Queil.FSharp.FscHost.Plugin.Tests
 
+open System.IO
 open Expecto
 open Queil.FSharp.FscHost.Plugin
 open System
 
 [<Tests>]
 let ceTests =
+  
+  let ensureTempPath () =
+    let tmpPath = Path.Combine(Path.GetTempPath(), "fsc-host", Path.GetRandomFileName())
+    Directory.CreateDirectory tmpPath |> ignore
+    tmpPath
+  
   testList "Plugin builder" [
     
     testAsync "Inline script" {
@@ -46,14 +53,15 @@ module OtherPlugin =
     }
      
     testAsync "File script" {
-      let fileName = "/tmp/plugin.builder.file.fsx"
+      let tmpDir = ensureTempPath ()
+      let fileName = Path.Combine(tmpDir, "plugin.builder.file.fsx")
       let lines = ["""let plugin = Some "test971" """]
-      IO.File.WriteAllLines(fileName, lines)
+      File.WriteAllLines(fileName, lines)
       
       let! plugin =
         plugin<string option> {
           load
-          dir "/tmp"
+          dir tmpDir
           file "plugin.builder.file.fsx"
           cache true
           compiler (fun x -> { x with LangVersion = Some "preview" } )
@@ -63,14 +71,15 @@ module OtherPlugin =
     }
     
     testAsync "File script - w/binding" {
-      let fileName = "/tmp/plugin.builder.binding.file.fsx"
+      let tmpDir = ensureTempPath ()
+      let fileName = Path.Combine(tmpDir, "plugin.builder.binding.file.fsx")
       let lines = ["""let export = Some "test971" """]
-      IO.File.WriteAllLines(fileName, lines)
+      File.WriteAllLines(fileName, lines)
       
       let! plugin =
         plugin<string option> {
           load
-          dir "/tmp"
+          dir tmpDir
           file "plugin.builder.binding.file.fsx"
           binding "export"
           cache true

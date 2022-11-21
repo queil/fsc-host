@@ -174,7 +174,7 @@ module CompilerHost =
                   | path when path.EndsWith(".dll") -> Some path
                   | _ -> None)
                 |> Seq.groupBy id
-                |> Seq.map (fun (path, _) -> path)
+                |> Seq.map fst
             | _ -> raise (ScriptParseError (projResults.Diagnostics |> Seq.map string))
         | _ -> return raise (ScriptParseError (errors |> Seq.map string) )
       }

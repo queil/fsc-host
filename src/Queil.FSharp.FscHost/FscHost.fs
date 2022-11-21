@@ -26,14 +26,14 @@ with
       Args = fun scriptPath refs opts ->
         [
         "-a"; scriptPath
-        sprintf "--targetprofile:%s" opts.TargetProfile
-        sprintf "--target:%s" opts.Target
-        sprintf "--warn:%i" opts.WarningLevel
+        $"--targetprofile:%s{opts.TargetProfile}"
+        $"--target:%s{opts.Target}"
+        $"--warn:%i{opts.WarningLevel}"
         yield! refs
-        match opts.IncludeHostEntryAssembly with | true -> sprintf "-r:%s" (Assembly.GetEntryAssembly().GetName().Name) |_ -> ()
-        match opts.LangVersion with | Some ver -> sprintf "--langversion:%s" ver | _ -> ()
+        match opts.IncludeHostEntryAssembly with | true -> $"-r:%s{Assembly.GetEntryAssembly().GetName().Name}" |_ -> ()
+        match opts.LangVersion with | Some ver -> $"--langversion:%s{ver}" | _ -> ()
         for s in opts.Symbols do
-          sprintf "--define:%s" s
+          $"--define:%s{s}"
         ]
       IncludeHostEntryAssembly = true
       LangVersion = None
@@ -72,7 +72,7 @@ module CompilerHost =
         | File path -> path
         | Inline _ -> 
           let path = Path.GetTempFileName()
-          sprintf "%s%s.fsx" (Path.GetTempPath()) (Path.GetFileNameWithoutExtension path)
+          $"%s{Path.GetTempPath()}%s{Path.GetFileNameWithoutExtension path}.fsx"
 
       let createInlineScriptFile (filePath:string) =
         function
@@ -88,7 +88,7 @@ module CompilerHost =
       let log = options.Logger
       let loadNuGetAssemblies nugetPaths =
         nugetPaths |> Seq.iter (fun path -> 
-          sprintf "Loading assembly: %s" path |> log
+          $"Loading assembly: %s{path}" |> log
           path |> Assembly.LoadFrom |> ignore
         )
 
@@ -106,9 +106,9 @@ module CompilerHost =
         
         match maybeCachedFileName with
         | Some path when File.Exists path ->
-          sprintf "Found and loading cached assembly: %s" path |> log
+          $"Found and loading cached assembly: %s{path}" |> log
           let nuGetFile = Path.ChangeExtension (path, "nuget")
-          sprintf "Loading cached NuGet resolutions file: %s" nuGetFile |> log
+          $"Loading cached NuGet resolutions file: %s{nuGetFile}" |> log
           nuGetFile |> File.ReadAllLines |> loadNuGetAssemblies
           return path |> Path.GetFullPath |> Assembly.LoadFile
           
@@ -118,7 +118,7 @@ module CompilerHost =
           nuGetsPaths |> loadNuGetAssemblies
           maybePath |> Option.iter (fun path -> 
             let nuGetFile = Path.ChangeExtension (path, "nuget")
-            sprintf "Caching resolved NuGets to: %s" nuGetFile |> log
+            $"Caching resolved NuGets to: %s{nuGetFile}" |> log
             (nuGetFile, nuGetsPaths) |> File.WriteAllLines
           )
 

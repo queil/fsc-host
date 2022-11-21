@@ -16,7 +16,7 @@ let invoke<'a> (func:unit -> 'a) =
   | ScriptCompileError errors -> 
     failwithf "%s" (errors |> String.concat "\n")
   | ScriptMemberHasInvalidType (propertyName, actualTypeSignature) ->
-    printfn "Diagnostics: Property '%s' should be of type '%s' but is '%s'" propertyName (typeof<'a>.ToString()) actualTypeSignature
+    printfn $"Diagnostics: Property '%s{propertyName}' should be of type '%s{typeof<'a>.ToString()}' but is '%s{actualTypeSignature}'"
     reraise ()
 
 [<Tests>]
@@ -274,7 +274,7 @@ module Func =
             (Member<_ -> (_ -> _) -> _>.Path "Test.Script.Func.myFunc")
              |> Async.RunSynchronously
 
-      let result = resultFunc (2.0, 8) <| fun (a, b) -> sprintf "Generic: (%f, %i)" a b
+      let result = resultFunc (2.0, 8) <| fun (a, b) -> $"Generic: (%f{a}, %i{b})"
       
       "Values should be equal" |> Expect.equal result "Generic: (2.000000, 8)"
     }

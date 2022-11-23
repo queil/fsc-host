@@ -7,7 +7,7 @@ open System.IO
 
 [<Tests>]
 let cacheTests =
-  testList "Cache invalidation" [
+  testList "Caching" [
     let asScript filePath lines = File.WriteAllLines(filePath, lines |> Seq.toArray)
     
     let prepareScripts () =
@@ -47,14 +47,18 @@ let cacheTests =
       
       let sw = Stopwatch.StartNew()
       let! _ = plugin ()
-      printfn $"%A{sw.Elapsed}"
+      let timingCold = sw.Elapsed
+      printfn $"%A{timingCold}"
       sw.Restart()
 
       let! _ = plugin ()
       let timingFromCache = sw.Elapsed
       printfn $"%A{timingFromCache}"
-      "Should read assembly from cache" |> Expect.isLessThan timingFromCache.Milliseconds 100
       
+      let ratio = timingCold.Ticks / timingFromCache.Ticks
+      let expectedRatioAtLeast = 5
+
+      $"Should read assembly from cache. Timings: cold {timingCold}, cache {timingFromCache}, ratio {ratio} " |> Expect.isGreaterThan ratio expectedRatioAtLeast
     }
     
     testAsync "Should invalidate compiled assembly if leaf scripts change" {
@@ -88,6 +92,36 @@ let cacheTests =
       
       let result = "Some int expected" |> Expect.wantSome secondResult
       "Result should be '323'" |> Expect.equal result 323
-      
+    }
+    
+    testAsync "Override cache dir path" {
+      let tmpPath = Path.Combine(Path.GetTempPath(), "fsc-host", Path.GetRandomFileName())
+      Directory.CreateDirectory tmpPath |> ignore
+      let findDlls () = Directory.EnumerateFiles tmpPath |> Seq.tryFind (fun f -> f.EndsWith(".dll"))     
+      findDlls () |> Expecto.Flip.Expect.isNone "The cache dir should not contain dlls"
+
+      let! _ = 
+        plugin<int option> {
+          body "let plugin = Some 10"
+          cache true
+          cache_dir tmpPath
+          log System.Console.WriteLine
+        }
+      findDlls () |> Expecto.Flip.Expect.isSome "The cache dir should contain dlls"
+    }
+    
+    testAsync "Shouldn't cache if caching not enabled" {
+      let tmpPath = Path.Combine(Path.GetTempPath(), "fsc-host", Path.GetRandomFileName())
+      Directory.CreateDirectory tmpPath |> ignore
+      let findDlls () = Directory.EnumerateFiles tmpPath |> Seq.tryFind (fun f -> f.EndsWith(".dll"))     
+      findDlls () |> Expecto.Flip.Expect.isNone "The cache dir should not contain dlls"
+
+      let! _ = 
+        plugin<int option> {
+          body "let plugin = Some 10"
+          cache_dir tmpPath
+          log System.Console.WriteLine
+        }
+      findDlls () |> Expecto.Flip.Expect.isNone "The cache dir should not contain dlls"
     }
   ]

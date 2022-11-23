@@ -47,7 +47,7 @@ type Options =
   {
     Compiler: CompilerOptions
     UseCache: bool
-    CachePath: string
+    CacheDir: string
     Logger: string -> unit
   }
 with 
@@ -55,7 +55,7 @@ with
     {
       Compiler = CompilerOptions.Default
       UseCache = false
-      CachePath = Path.Combine(".fsc-host", "cache")
+      CacheDir = Path.Combine(".fsc-host", "cache")
       Logger = ignore
     }
 
@@ -95,7 +95,7 @@ module CompilerHost =
       async {
 
         if options.UseCache then
-          Directory.CreateDirectory options.CachePath |> ignore
+          Directory.CreateDirectory options.CacheDir |> ignore
 
         let maybeCachedFileName =
           if options.UseCache then
@@ -103,7 +103,7 @@ module CompilerHost =
             let computeHash (s:string) = s |> Encoding.UTF8.GetBytes |> sha256.ComputeHash |> BitConverter.ToString |> fun s -> s.Replace("-", "")
             let fileHash filePath = File.ReadAllText filePath |> computeHash
             let combinedHash = projOptions.SourceFiles |> Seq.map fileHash |> Seq.reduce (fun a b -> a + b) |> computeHash
-            Some (Path.Combine(options.CachePath.TrimEnd('\\','/'), $"{combinedHash}.dll"))
+            Some (Path.Combine(options.CacheDir.TrimEnd('\\','/'), $"{combinedHash}.dll"))
           else None
         
         match maybeCachedFileName with

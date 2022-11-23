@@ -1,5 +1,6 @@
 module Queil.FSharp.FscHost.Cache.Tests
 
+open System.Diagnostics
 open Expecto
 open Queil.FSharp.FscHost.Plugin
 open System.IO
@@ -9,7 +10,7 @@ let cacheTests =
   testList "Cache invalidation" [
     let asScript filePath lines = File.WriteAllLines(filePath, lines |> Seq.toArray)
     
-    testAsync "File script" {
+    let prepareScripts () =
       let tmpPath = Path.Combine(Path.GetTempPath(), "fsc-host", Path.GetRandomFileName())
       Directory.CreateDirectory tmpPath |> ignore
       let scriptDir = tmpPath
@@ -31,17 +32,43 @@ let cacheTests =
         $"""#load "%s{fileA.Replace(@"\", @"\\")}" """
         """let plugin = Some (Depa.valueA * Depb.valueB) """
       ] |> asScript rootScriptPath
-
+      scriptDir, rootScriptName, fileA, fileB
+    
+    testAsync "Should reuse cached assembly" {
+      let scriptDir, rootScriptName, _, _ = prepareScripts ()
       let plugin () = 
         plugin<int option> {
           load
           dir scriptDir
           file rootScriptName
           cache true
-          compiler (fun x -> { x with LangVersion = Some "preview" } )
+          log System.Console.WriteLine
         }
       
-      let! firstResult = plugin ()  
+      let sw = Stopwatch.StartNew()
+      let! _ = plugin ()
+      printfn $"%A{sw.Elapsed}"
+      sw.Restart()
+
+      let! _ = plugin ()
+      let timingFromCache = sw.Elapsed
+      printfn $"%A{timingFromCache}"
+      "Should read assembly from cache" |> Expect.isLessThan timingFromCache.Milliseconds 100
+      
+    }
+    
+    testAsync "Should invalidate compiled assembly if leaf scripts change" {
+    
+      let scriptDir, rootScriptName, fileA, fileB = prepareScripts ()
+      let plugin () = 
+        plugin<int option> {
+          load
+          dir scriptDir
+          file rootScriptName
+          cache true
+        }
+      
+      let! firstResult = plugin ()
       
       let result = "Some int expected" |> Expect.wantSome firstResult
       "Result should be '143'" |> Expect.equal result 143
@@ -49,7 +76,7 @@ let cacheTests =
       // editing non-root files should also dump the cache
       // and re-compiling should return the updated result
       [
-        $"""#load "%s{fileB}" """
+        $"""#load "%s{fileB.Replace(@"\", @"\\")}" """
         """let valueA = 17"""
       ] |> asScript fileA
       

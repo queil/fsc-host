@@ -10,8 +10,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Queil.FSharp.FscHost" Version="0.14.0-alpha.2" />
-    <PackageReference Update="FSharp.Core" Version="6.0.1" />
+    <PackageReference Include="Queil.FSharp.FscHost" Version="0.18.0" />
+    <PackageReference Update="FSharp.Core" Version="6.0.6" />
   </ItemGroup>
 
 </Project>

@@ -29,14 +29,8 @@ HELLO: I hereby send the message
 * Consuming values and functions (including generics)
 * Referencing NuGet packages and other scripts via the usual [`#r` directive](https://docs.microsoft.com/en-us/dotnet/fsharp/tools/fsharp-interactive/#referencing-packages-in-f-interactive)
 * Controlling compilation options
-* Basic assembly caching (opt-in via options - so far invalidation is only supported for the root script file)
+* Full assembly caching (opt-in via options)
 * Basic logging (by passing a logging func via options)
-
-## What is planned
-
-* [ ] Invalidate cache on any change in the whole script dependency tree. It only works for the root file at the moment.
-* [ ] ~~A new API allowing scripts to become a dynamic implementation for an interface/module (to avoid referencing scripts members by strings)~~ Plugin API provided instead
-* [ ] Design a logo :smiley:
 
 ## Requirements
 

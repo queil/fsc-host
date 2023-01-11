@@ -9,6 +9,7 @@
   <ItemGroup>
     <Compile Include="Core.Tests.fs" />
     <Compile Include="Plugin.Tests.fs" />
+    <Compile Include="Cache.Tests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 

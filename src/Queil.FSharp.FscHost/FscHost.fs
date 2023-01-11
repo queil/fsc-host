@@ -26,14 +26,14 @@ with
       Args = fun scriptPath refs opts ->
         [
         "-a"; scriptPath
-        sprintf "--targetprofile:%s" opts.TargetProfile
-        sprintf "--target:%s" opts.Target
-        sprintf "--warn:%i" opts.WarningLevel
+        $"--targetprofile:%s{opts.TargetProfile}"
+        $"--target:%s{opts.Target}"
+        $"--warn:%i{opts.WarningLevel}"
         yield! refs
-        match opts.IncludeHostEntryAssembly with | true -> sprintf "-r:%s" (Assembly.GetEntryAssembly().GetName().Name) |_ -> ()
-        match opts.LangVersion with | Some ver -> sprintf "--langversion:%s" ver | _ -> ()
+        match opts.IncludeHostEntryAssembly with | true -> $"-r:%s{Assembly.GetEntryAssembly().GetName().Name}" |_ -> ()
+        match opts.LangVersion with | Some ver -> $"--langversion:%s{ver}" | _ -> ()
         for s in opts.Symbols do
-          sprintf "--define:%s" s
+          $"--define:%s{s}"
         ]
       IncludeHostEntryAssembly = true
       LangVersion = None
@@ -47,7 +47,7 @@ type Options =
   {
     Compiler: CompilerOptions
     UseCache: bool
-    CachePath: string
+    CacheDir: string
     Logger: string -> unit
   }
 with 
@@ -55,7 +55,7 @@ with
     {
       Compiler = CompilerOptions.Default
       UseCache = false
-      CachePath = ".fsc-host/cache"
+      CacheDir = Path.Combine(".fsc-host", "cache")
       Logger = ignore
     }
 
@@ -72,7 +72,7 @@ module CompilerHost =
         | File path -> path
         | Inline _ -> 
           let path = Path.GetTempFileName()
-          sprintf "%s%s.fsx" (Path.GetTempPath()) (Path.GetFileNameWithoutExtension path)
+          $"%s{Path.GetTempPath()}%s{Path.GetFileNameWithoutExtension path}.fsx"
 
       let createInlineScriptFile (filePath:string) =
         function
@@ -83,54 +83,56 @@ module CompilerHost =
       script |> createInlineScriptFile path
       path
 
-    let compileScript (filePath:string) (options: Options) (resolveNugets:string -> Async<string seq>) : Async<Assembly> =
+    let compileScript (entryFilePath:string) (projOptions:FSharpProjectOptions) (options: Options) (resolveNugets:FSharpProjectOptions -> Async<string seq>) : Async<Assembly> =
 
       let log = options.Logger
       let loadNuGetAssemblies nugetPaths =
         nugetPaths |> Seq.iter (fun path -> 
-          sprintf "Loading assembly: %s" path |> log
+          log $"Loading assembly: %s{path}"
           path |> Assembly.LoadFrom |> ignore
         )
 
       async {
 
         if options.UseCache then
-          Directory.CreateDirectory options.CachePath |> ignore
+          Directory.CreateDirectory options.CacheDir |> ignore
 
         let maybeCachedFileName =
           if options.UseCache then
             use sha256 = SHA256.Create()
-            let checksum = File.ReadAllText filePath |> Encoding.UTF8.GetBytes |> sha256.ComputeHash |> BitConverter.ToString |> fun s -> s.Replace("-", "")
-            Some (options.CachePath.TrimEnd('\\','/') + "/" + $"{checksum}.dll")
+            let computeHash (s:string) = s |> Encoding.UTF8.GetBytes |> sha256.ComputeHash |> BitConverter.ToString |> fun s -> s.Replace("-", "")
+            let fileHash filePath = File.ReadAllText filePath |> computeHash
+            let combinedHash = projOptions.SourceFiles |> Seq.map fileHash |> Seq.reduce (fun a b -> a + b) |> computeHash
+            Some (Path.Combine(options.CacheDir.TrimEnd('\\','/'), $"{combinedHash}.dll"))
           else None
         
         match maybeCachedFileName with
         | Some path when File.Exists path ->
-          sprintf "Found and loading cached assembly: %s" path |> log
+          log $"Found and loading cached assembly: %s{path}"
           let nuGetFile = Path.ChangeExtension (path, "nuget")
-          sprintf "Loading cached NuGet resolutions file: %s" nuGetFile |> log
+          log $"Loading cached NuGet resolutions file: %s{nuGetFile}"
           nuGetFile |> File.ReadAllLines |> loadNuGetAssemblies
           return path |> Path.GetFullPath |> Assembly.LoadFile
           
         | maybePath ->
-          let! nuGetsPaths = resolveNugets filePath
+          let! nuGetsPaths = resolveNugets projOptions
           let refs = nuGetsPaths |> Seq.map (sprintf "-r:%s") |> Seq.toList
           nuGetsPaths |> loadNuGetAssemblies
           maybePath |> Option.iter (fun path -> 
             let nuGetFile = Path.ChangeExtension (path, "nuget")
-            sprintf "Caching resolved NuGets to: %s" nuGetFile |> log
+            log $"Caching resolved NuGets to: %s{nuGetFile}"
             (nuGetFile, nuGetsPaths) |> File.WriteAllLines
           )
 
           let compilerArgs =
             [
-              yield! options.Compiler.Args filePath refs options.Compiler
+              yield! options.Compiler.Args entryFilePath refs options.Compiler
               match maybePath with
               | Some path -> $"--out:{path}"
               | None -> ()
             ]
 
-          sprintf "Compiling with args: %s" (compilerArgs |> String.concat " ") |> log
+          log (sprintf "Compiling with args: %s" (compilerArgs |> String.concat " "))
           
           let getAssemblyOrThrow (errors: FSharpDiagnostic array) (getAssembly: unit -> Assembly) =
             match errors with
@@ -157,34 +159,32 @@ module CompilerHost =
           return assembly
       }
 
-    let resolveNugets (filePath:string) =
+    let resolveNugets (projOptions: FSharpProjectOptions) =
       async {
-        let source = File.ReadAllText filePath |> SourceText.ofString
-        let! projOptions, errors = checker.GetProjectOptionsFromScript(filePath, source)
-
-        match errors with
-        | [] -> 
-          let! projResults = checker.ParseAndCheckProject(projOptions)
-          return
-            match projResults.HasCriticalErrors with
-            | false -> 
-              projResults.DependencyFiles 
-                |> Seq.choose(
-                  function
-                  | path when path.EndsWith(".dll") -> Some path
-                  | _ -> None)
-                |> Seq.groupBy id
-                |> Seq.map (fun (path, _) -> path)
-            | _ -> raise (ScriptParseError (projResults.Diagnostics |> Seq.map string))
-        | _ -> return raise (ScriptParseError (errors |> Seq.map string) )
+        let! projResults = checker.ParseAndCheckProject(projOptions)
+        return
+          match projResults.HasCriticalErrors with
+          | false -> 
+            projResults.DependencyFiles 
+              |> Seq.choose(
+                function
+                | path when path.EndsWith(".dll") -> Some path
+                | _ -> None)
+              |> Seq.groupBy id
+              |> Seq.map fst
+          | _ -> raise (ScriptParseError (projResults.Diagnostics |> Seq.map string))
       }
-  
+
   open Internals
 
   let getAssembly (options: Options) (script:Script) : Async<Assembly> =
     let filePath = script |> ensureScriptFile
     async {
-      return! compileScript filePath options resolveNugets
+      let source = File.ReadAllText filePath |> SourceText.ofString
+      let! projOptions, errors = checker.GetProjectOptionsFromScript(filePath, source)
+      match errors with
+      | [] -> return! compileScript filePath projOptions options resolveNugets
+      | _ -> return raise (ScriptParseError (errors |> Seq.map string) )
     }
 
   let getMember<'a> (options: Options) (Path pathA: Member<'a>) (script:Script) : Async<'a> =

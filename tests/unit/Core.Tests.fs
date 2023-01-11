@@ -12,11 +12,9 @@ let options =
 let invoke<'a> (func:unit -> 'a) =
   try
     func ()
-  with 
-  | ScriptCompileError errors -> 
-    failwithf "%s" (errors |> String.concat "\n")
+  with
   | ScriptMemberHasInvalidType (propertyName, actualTypeSignature) ->
-    printfn "Diagnostics: Property '%s' should be of type '%s' but is '%s'" propertyName (typeof<'a>.ToString()) actualTypeSignature
+    printfn $"Diagnostics: Property '%s{propertyName}' should be of type '%s{typeof<'a>.ToString()}' but is '%s{actualTypeSignature}'"
     reraise ()
 
 [<Tests>]
@@ -204,10 +202,10 @@ module Func =
     ()
 
 """
-      let (resultFunc, sideEffect) = invoke <| fun () ->
+      let resultFunc, sideEffect = invoke <| fun () ->
         Inline script |>
           CompilerHost.getMember2 options
-            (Member<(float * int) -> string -> int -> unit option -> string>.Path "Test.Script.Func.myFunc")
+            (Member<float * int -> string -> int -> unit option -> string>.Path "Test.Script.Func.myFunc")
             (Member<unit -> unit>.Path "Test.Script.Func.sideEffect")
              |> Async.RunSynchronously
 
@@ -230,10 +228,10 @@ module Func =
     sprintf "tuple1: (%f, %i) - tuple2: (%s, %A)" t1f t1i (t2s ()) (t2s' "")
 
 """
-      let (resultFunc) = invoke <| fun () ->
+      let resultFunc = invoke <| fun () ->
         Inline script |>
           CompilerHost.getMember options
-            (Member<(float * int) -> ((_ -> string) * (string -> _))-> string>.Path "Test.Script.Func.myFunc")
+            (Member<float * int -> (_ -> string) * (string -> _) -> string>.Path "Test.Script.Func.myFunc")
              |> Async.RunSynchronously
       //this tests fails when the unit in fun () -> "test" is replaced by fun x -> "test"
       let result = resultFunc (2.0, 8) ((fun () -> "test"), (fun _ -> ()))
@@ -249,7 +247,7 @@ module Func =
   let myFunc something = sprintf "Generic: %A" something
 
 """
-      let (resultFunc) = invoke <| fun () ->
+      let resultFunc = invoke <| fun () ->
         Inline script |>
           CompilerHost.getMember options
             (Member<_ -> string>.Path "Test.Script.Func.myFunc")
@@ -268,13 +266,13 @@ module Func =
   let myFunc something toB : 'b = something |> toB
 
 """
-      let (resultFunc) = invoke <| fun () ->
+      let resultFunc = invoke <| fun () ->
         Inline script |>
           CompilerHost.getMember options
             (Member<_ -> (_ -> _) -> _>.Path "Test.Script.Func.myFunc")
              |> Async.RunSynchronously
 
-      let result = resultFunc (2.0, 8) <| fun (a, b) -> sprintf "Generic: (%f, %i)" a b
+      let result = resultFunc (2.0, 8) <| fun (a, b) -> $"Generic: (%f{a}, %i{b})"
       
       "Values should be equal" |> Expect.equal result "Generic: (2.000000, 8)"
     }

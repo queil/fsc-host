@@ -43,10 +43,9 @@ module internal Reflection =
         match (f, p) with
         | f, p when p.IsGenericMethodParameter ->
           if s.GenericParams.ContainsKey(p) && s.GenericParams.[p] <> f then
-            failwithf "Failed to add type '%s' as a substitute for generic parameter type '%s'. It already has a substitute (%s)" 
-              (f.ToString()) (p.ToString()) (s.GenericParams.[p].ToString())
+            failwithf $"Failed to add type '%s{f.ToString()}' as a substitute for generic parameter type '%s{p.ToString()}'. It already has a substitute (%s{s.GenericParams.[p].ToString()})"
           else s.GenericParams.TryAdd(p, f) |> ignore
-        | (FsFunc (fi, fo)), (FsFunc (pi, po)) ->
+        | FsFunc (fi, fo), FsFunc (pi, po) ->
           handle fi pi s
           handle fo po s
         | _ -> ()
@@ -59,7 +58,7 @@ module internal Reflection =
         let v = Var(p.Name, f)
         Expr.Lambda(v, build fs' ps' { s with Vars = v::s.Vars })
 
-      | (FsTuple us as f)::_, p::ps' when s.Index < us.Length ->
+      | FsTuple us as f::_, p::ps' when s.Index < us.Length ->
         handleGenerics us.[s.Index] p s
         let v = Var($"{p.Name}_{s.Index}", us.[s.Index])
         let expr tv = Expr.Let(v, Expr.TupleGet(Expr.Var tv, s.Index),
@@ -70,11 +69,11 @@ module internal Reflection =
           let tupleVar = Var("tupledArg", f)
           Expr.Lambda(tupleVar, expr tupleVar)
 
-      | (FsTuple _ as f)::fs', p::_ ->
+      | FsTuple _ as f::fs', p::_ ->
         handleGenerics f p s
         build fs' ps { s with Index = 0; TupleVar = None }
 
-      | (FsFunc _ as f)::fs', p::ps' ->
+      | FsFunc _ as f::fs', p::ps' ->
         handleGenerics f p s
         let v = Var(p.Name, f)
         Expr.Lambda(v, build fs' ps' { s with Vars = v::s.Vars })

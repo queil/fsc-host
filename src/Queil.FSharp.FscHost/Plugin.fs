@@ -55,13 +55,19 @@ module Plugin =
       let options = {state.State.options with UseCache = useCache} 
       CommonBuilder { state.State with options = options }
     
+    /// Overrides the default cache dir path. It is only relevant if cache is enabled. Default: .fsc-host/cache
+    [<CustomOperation("cache_dir")>]
+    member x.CacheDir(state: CommonBuilder, cacheDir: string) =
+      let options = {state.State.options with CacheDir = cacheDir} 
+      CommonBuilder { state.State with options = options }
+    
     /// Enables a custom logging function
     [<CustomOperation("log")>]
     member x.Log(state: CommonBuilder, logFun: string -> unit) =
       let options = {state.State.options with Logger =  logFun} 
       CommonBuilder { state.State with options = options }
      
-     /// Defines the name of a binding to extract. Default: plugin
+    /// Defines the name of a binding to extract. Default: plugin
     [<CustomOperation("binding")>]
     member x.Binding(state: CommonBuilder, name: string) =
       CommonBuilder { state.State with bindingName = name }

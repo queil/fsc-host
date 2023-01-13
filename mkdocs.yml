@@ -1,0 +1,15 @@
+site_name: FscHost
+repo_url: https://github.com/queil/fsc-host
+site_url: https://queil.github.io/fsc-host
+nav:
+  - Home: index.md
+  - API Reference: reference/index.md
+theme:
+  name: material
+  palette:
+    primary: teal
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences
+extra_css:
+  - stylesheets/extra.css

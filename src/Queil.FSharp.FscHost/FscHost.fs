@@ -65,7 +65,7 @@ module CompilerHost =
 
   module private Internals =
     let checker = FSharpChecker.Create()
-  
+
     let ensureScriptFile (script:Script) =
       let getScriptFilePath =
         function
@@ -97,39 +97,36 @@ module CompilerHost =
         if options.UseCache then
           Directory.CreateDirectory options.CacheDir |> ignore
 
-        let maybeCachedFileName =
+        let outputDllName =
           if options.UseCache then
             use sha256 = SHA256.Create()
             let computeHash (s:string) = s |> Encoding.UTF8.GetBytes |> sha256.ComputeHash |> BitConverter.ToString |> fun s -> s.Replace("-", "")
             let fileHash filePath = File.ReadAllText filePath |> computeHash
             let combinedHash = projOptions.SourceFiles |> Seq.map fileHash |> Seq.reduce (fun a b -> a + b) |> computeHash
-            Some (Path.Combine(options.CacheDir.TrimEnd('\\','/'), $"{combinedHash}.dll"))
-          else None
-        
-        match maybeCachedFileName with
-        | Some path when File.Exists path ->
+            Path.Combine(options.CacheDir.TrimEnd('\\','/'), $"{combinedHash}.dll")
+          else
+            $"{Path.GetTempFileName()}.dll"
+       
+        match outputDllName with
+        | path when File.Exists path ->
           log $"Found and loading cached assembly: %s{path}"
           let nuGetFile = Path.ChangeExtension (path, "nuget")
           log $"Loading cached NuGet resolutions file: %s{nuGetFile}"
           nuGetFile |> File.ReadAllLines |> loadNuGetAssemblies
           return path |> Path.GetFullPath |> Assembly.LoadFile
           
-        | maybePath ->
+        | path ->
           let! nuGetsPaths = resolveNugets projOptions
           let refs = nuGetsPaths |> Seq.map (sprintf "-r:%s") |> Seq.toList
           nuGetsPaths |> loadNuGetAssemblies
-          maybePath |> Option.iter (fun path -> 
-            let nuGetFile = Path.ChangeExtension (path, "nuget")
-            log $"Caching resolved NuGets to: %s{nuGetFile}"
-            (nuGetFile, nuGetsPaths) |> File.WriteAllLines
-          )
-
+          let nuGetFile = Path.ChangeExtension (path, "nuget")
+          log $"Caching resolved NuGets to: %s{nuGetFile}"
+          (nuGetFile, nuGetsPaths) |> File.WriteAllLines
+          
           let compilerArgs =
             [
               yield! options.Compiler.Args entryFilePath refs options.Compiler
-              match maybePath with
-              | Some path -> $"--out:{path}"
-              | None -> ()
+              $"--out:{path}"
             ]
 
           log (sprintf "Compiling with args: %s" (compilerArgs |> String.concat " "))
@@ -143,14 +140,9 @@ module CompilerHost =
               getAssembly ()
           
           let getAssembly () =
-            async {
-                match maybePath with
-                | Some path -> 
-                  let! errors, _ = checker.Compile(compilerArgs |> List.toArray, "None")
-                  return getAssemblyOrThrow errors (fun () -> path |> Path.GetFullPath |> Assembly.LoadFile)
-                | None ->
-                  let! errors, _, maybeAssembly = checker.CompileToDynamicAssembly(compilerArgs |> List.toArray, None)
-                  return getAssemblyOrThrow errors (fun () -> maybeAssembly.Value)
+            async {          
+                let! errors, _ = checker.Compile(compilerArgs |> List.toArray, "None")
+                return getAssemblyOrThrow errors (fun () -> path |> Path.GetFullPath |> Assembly.LoadFile)
             }
           let! assembly = getAssembly ()
 

@@ -1,9 +1,8 @@
 # fsc-host [![Build Status](https://dev.azure.com/queil/fsc-host/_apis/build/status/queil.fsc-host?branchName=main)](https://dev.azure.com/queil/fsc-host/_build/latest?definitionId=3&branchName=main)  [![NuGet Badge](https://buildstats.info/nuget/Queil.FSharp.FscHost?includePreReleases=true)](https://www.nuget.org/packages/Queil.FSharp.FscHost) [![Coverage](https://img.shields.io/azure-devops/coverage/queil/fsc-host/3?style=flat)](https://img.shields.io/azure-devops/coverage/queil/fsc-host/3?style=plastic)
 
-## Extend your F# apps with F# scripts.
+## Extend your F# apps with F# scripts
 
-You can easily extend your applications by calling functions and retrieving values on run time from dynamically 
-compiled scripts. A bare minimum example (Plugin API):
+You can easily extend your applications by calling functions and retrieving values on run time from dynamically compiled scripts. A bare minimum example (Plugin API):
 
 ##### plugins/default/plugin.fsx (Plugin)
 ```fsharp
@@ -44,7 +43,7 @@ This project is still in v0 which means the public API hasn't stabilised yet and
 
 1. Create a console app and add the package
 
-```
+```sh
 dotnet new console -lang F# --name fsc-host-test && cd fsc-host-test && dotnet add package Queil.FSharp.FscHost --version 0.16.0
 ```
 
@@ -116,3 +115,11 @@ The public API of this library comes in three flavours:
 
 * [My blog post about the package](https://queil.net/2021/10/embedding-fsharp-compiler-fsc-host-nuget/)
 * [FSharp Compiler Docs](https://fsharp.github.io/fsharp-compiler-docs/)
+
+## Development
+
+Fix FSharp.Core package hash locally:
+
+```sh
+docker run --rm -it  -v $(pwd):/build -w /build  mcr.microsoft.com/dotnet/sdk:7.0 dotnet restore --force-evaluate
+```

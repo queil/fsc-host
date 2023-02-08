@@ -11,8 +11,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{E407C524
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Queil.FSharp.FscHost.Tests", "tests\unit\Queil.FSharp.FscHost.Tests.fsproj", "{A3BC9F79-88A2-4ED4-8849-A4388DC75C1D}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "fsxpub", "src\fsxpub\fsxpub.fsproj", "{8C6D879D-C200-40A0-88D7-AAF424E00E7B}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -30,14 +28,9 @@ Global
 		{A3BC9F79-88A2-4ED4-8849-A4388DC75C1D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A3BC9F79-88A2-4ED4-8849-A4388DC75C1D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A3BC9F79-88A2-4ED4-8849-A4388DC75C1D}.Release|Any CPU.Build.0 = Release|Any CPU
-		{8C6D879D-C200-40A0-88D7-AAF424E00E7B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{8C6D879D-C200-40A0-88D7-AAF424E00E7B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{8C6D879D-C200-40A0-88D7-AAF424E00E7B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{8C6D879D-C200-40A0-88D7-AAF424E00E7B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{083C0401-78B6-478F-8171-DF2093FF035F} = {66F5D23D-95D6-4460-A5A7-9F159AECC712}
 		{A3BC9F79-88A2-4ED4-8849-A4388DC75C1D} = {E407C524-3F23-4EA2-8403-2B350C40B621}
-		{8C6D879D-C200-40A0-88D7-AAF424E00E7B} = {66F5D23D-95D6-4460-A5A7-9F159AECC712}
 	EndGlobalSection
 EndGlobal

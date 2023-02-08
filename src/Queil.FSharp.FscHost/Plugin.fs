@@ -41,7 +41,7 @@ module Plugin =
         let! output = script |> CompilerHost.getAssembly state.State.options          
 
         let candidateTypes =
-          output.Assembly.GetTypes()
+          output.Assembly.Value.GetTypes()
           |> Seq.sortBy (fun typ -> typ.FullName.Split('+', '.').Length)
           |> Seq.tryFind (fun typ -> match typ.GetMember(state.State.bindingName) |> Seq.toList with | [] -> false | _ -> true)
           |> Option.toList

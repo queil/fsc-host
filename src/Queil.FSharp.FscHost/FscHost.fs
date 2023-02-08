@@ -19,6 +19,7 @@ type CompilerOptions = {
   TargetProfile: string
   WarningLevel: int
   Symbols: string list
+  Standalone: bool
 }
 with
   static member Default =
@@ -34,6 +35,7 @@ with
         match opts.LangVersion with | Some ver -> $"--langversion:%s{ver}" | _ -> ()
         for s in opts.Symbols do
           $"--define:%s{s}"
+        match opts.Standalone with true -> "--standalone" |_ -> ()
         ]
       IncludeHostEntryAssembly = true
       LangVersion = None
@@ -41,13 +43,38 @@ with
       TargetProfile = "netcore"
       WarningLevel = 3
       Symbols = []
+      Standalone = false
     }
 
 type CompileOutput = {
   AssemblyFilePath: string
-  Assembly: Assembly
+  Assembly: Lazy<Assembly>
 }
 
+type ScriptCache = {
+  NuGets: string list
+  SourceFiles: string list
+  FilePath: string
+}
+with 
+  static member Default = { NuGets = []; SourceFiles = []; FilePath = ""}
+  static member Load(path:string) =
+    path
+    |> File.ReadAllLines
+    |> Seq.fold(
+        fun x s -> 
+          match s.Split("#") |> Seq.toList with
+          | ["n"; v] -> { x with NuGets = v::x.NuGets }
+          | ["s"; v] -> { x with SourceFiles = v::x.SourceFiles }
+          | _ -> failwith $"Could not parse line: %s{s} in file: %s{path}") (ScriptCache.Default)
+    |> fun x -> {x with FilePath = path}
+  member cache.Save() =
+    [
+      yield! cache.SourceFiles |> Seq.map(fun v -> $"s#{v}")
+      yield! cache.NuGets |> Seq.map(fun v -> $"n#{v}")
+    ] 
+    |> fun lines -> File.WriteAllLines(cache.FilePath, lines)
+ 
 type Options =
   {
     Compiler: CompilerOptions
@@ -74,6 +101,13 @@ with
 module CompilerHost =
   open Errors
 
+  module private Hash =
+    let sha256 (s:string) =
+      use sha256 = SHA256.Create()
+      s |> Encoding.UTF8.GetBytes |> sha256.ComputeHash |> BitConverter.ToString |> fun s -> s.Replace("-", "")
+
+    let short (s:string) = s[0..10]
+
   module private Internals =
     let checker = FSharpChecker.Create()
 
@@ -94,7 +128,7 @@ module CompilerHost =
       script |> createInlineScriptFile path
       path
 
-    let compileScript (entryFilePath:string) (projOptions:FSharpProjectOptions) (options: Options) (resolveNugets:FSharpProjectOptions -> Async<string seq>) : Async<CompileOutput> =
+    let compileScript (entryFilePath:string) (metadata:ScriptCache) (options: Options) : Async<CompileOutput> =
 
       let log = options.Logger
       let loadNuGetAssemblies nugetPaths =
@@ -110,41 +144,35 @@ module CompilerHost =
 
         let outputDllName =
           if options.UseCache then
-            use sha256 = SHA256.Create()
-            let computeHash (s:string) = s |> Encoding.UTF8.GetBytes |> sha256.ComputeHash |> BitConverter.ToString |> fun s -> s.Replace("-", "")
-            let fileHash filePath = File.ReadAllText filePath |> computeHash
+            let fileHash filePath = File.ReadAllText filePath |> Hash.sha256
             let combinedHash = 
-              projOptions.SourceFiles |> Seq.map fileHash |> Seq.reduce (fun a b -> a + b) |> computeHash
+              metadata.SourceFiles
+              |> Seq.sort
+              |> Seq.map fileHash 
+              |> Seq.reduce (fun a b -> a + b) |> Hash.sha256
             
-            let hashString =
-              match options.CacheShortHash with
-              | true -> combinedHash[0..10]
-              | _ -> combinedHash
+            let maybeShort = if options.CacheShortHash then Hash.short else id
               
-            Path.Combine(options.CacheDir.TrimEnd('\\','/'), $"{hashString}.dll")
+            Path.Combine(options.CacheDir.TrimEnd('\\','/'), $"{combinedHash |> maybeShort}.dll")
           else
             $"{Path.GetTempFileName()}.dll"
        
         match outputDllName with
         | path when File.Exists path ->
           log $"Found and loading cached assembly: %s{path}"
-          let nuGetFile = Path.ChangeExtension (path, "nuget")
-        
+
           if options.AutoLoadNugetReferences then 
-            log $"Loading cached NuGet resolutions file: %s{nuGetFile}"
-            nuGetFile |> File.ReadAllLines |> loadNuGetAssemblies
+            log $"Loading cached NuGet resolutions file: %s{metadata.FilePath}"
+            metadata.NuGets |> loadNuGetAssemblies
           return {
             AssemblyFilePath = path
-            Assembly = path |> Path.GetFullPath |> Assembly.LoadFile
+            Assembly = Lazy<Assembly>(fun () -> path |> Path.GetFullPath |> Assembly.LoadFile)
           }
           
         | path ->
-          let! nuGetsPaths = resolveNugets projOptions
-          let refs = nuGetsPaths |> Seq.map (sprintf "-r:%s") |> Seq.toList
-          if options.AutoLoadNugetReferences then nuGetsPaths |> loadNuGetAssemblies
-          let nuGetFile = Path.ChangeExtension (path, "nuget")
-          log $"Caching resolved NuGet packages list to: %s{nuGetFile}"
-          (nuGetFile, nuGetsPaths) |> File.WriteAllLines
+         
+          let refs =  metadata.NuGets  |> Seq.map (sprintf "-r:%s") |> Seq.toList
+          if options.AutoLoadNugetReferences then  metadata.NuGets  |> loadNuGetAssemblies
           
           let compilerArgs =
             [
@@ -174,11 +202,13 @@ module CompilerHost =
           
           return {
             AssemblyFilePath = outputDllName
-            Assembly = assembly
+            Assembly = Lazy<Assembly>(fun () -> path |> Path.GetFullPath |> Assembly.LoadFile)
           }
       }
 
-    let resolveNugets (projOptions: FSharpProjectOptions) =
+  open Internals
+
+  let resolveNugets (projOptions: FSharpProjectOptions) =
       async {
         let! projResults = checker.ParseAndCheckProject(projOptions)
         return
@@ -194,48 +224,78 @@ module CompilerHost =
           | _ -> raise (ScriptParseError (projResults.Diagnostics |> Seq.map string))
       }
 
-  open Internals
-
   let getAssembly (options: Options) (script:Script) : Async<CompileOutput> =
     let filePath = script |> ensureScriptFile
     async {
-      let source = File.ReadAllText filePath |> SourceText.ofString
-      let! projOptions, errors = checker.GetProjectOptionsFromScript(filePath, source)
-      match errors with
-      | [] -> 
-        return! compileScript filePath projOptions options resolveNugets
-      | _ -> return raise (ScriptParseError (errors |> Seq.map string) )
+
+      let pathHash = filePath |> Hash.sha256 |> fun x -> x[0..10]
+
+      let workDir = Path.Combine(options.CacheDir, pathHash)
+
+      Directory.CreateDirectory workDir |> ignore
+
+      let cacheFilePath = Path.Combine(workDir, "cache")
+
+      let! metadataResult =
+        async { 
+        if File.Exists cacheFilePath then
+          return Ok (ScriptCache.Load cacheFilePath)
+        else
+          let source = File.ReadAllText filePath |> SourceText.ofString
+          let! projOptions, errors = checker.GetProjectOptionsFromScript(filePath, source)
+           
+          match errors with
+            | [] -> 
+                let metadata = 
+                  { ScriptCache.Default 
+                        with
+                          FilePath = cacheFilePath
+                          SourceFiles = projOptions.SourceFiles |> Seq.toList                         
+                  }
+                
+                if options.Compiler.Standalone then return Ok metadata 
+                else
+                  let! nugetPaths = resolveNugets projOptions
+                  return Ok ({metadata with NuGets = nugetPaths |> Seq.toList}) 
+            | errors -> return Error(errors)
+        }
+
+      match metadataResult with
+      | Ok metadata ->
+        metadata.Save()
+        return! compileScript filePath metadata {options with CacheDir = workDir}
+      | Error errors -> return raise (ScriptParseError (errors |> Seq.map string) )
     }
 
   let getMember<'a> (options: Options) (Path pathA: Member<'a>) (script:Script) : Async<'a> =
     async {
       let! output = script |> getAssembly options
-      return output.Assembly |> Member.get pathA
+      return output.Assembly.Value |> Member.get pathA
     }
 
   let getMember2<'a,'b> (options: Options) (Path pathA: Member<'a>) (Path pathB: Member<'b>) (script:Script) : Async<'a * 'b> =
     async {
       let! output = script |> getAssembly options
       return
-        output.Assembly |> Member.get<'a> pathA,
-        output.Assembly |> Member.get<'b> pathB
+        output.Assembly.Value |> Member.get<'a> pathA,
+        output.Assembly.Value |> Member.get<'b> pathB
     }
 
   let getMember3<'a,'b,'c> (options: Options) (Path pathA: Member<'a>) (Path pathB: Member<'b>) (Path pathC: Member<'c>) (script:Script) : Async<'a * 'b * 'c> =
     async {
       let! output = script |> getAssembly options
       return
-        output.Assembly |> Member.get<'a> pathA,
-        output.Assembly |> Member.get<'b> pathB,
-        output.Assembly |> Member.get<'c> pathC
+        output.Assembly.Value |> Member.get<'a> pathA,
+        output.Assembly.Value |> Member.get<'b> pathB,
+        output.Assembly.Value |> Member.get<'c> pathC
     }
 
   let getMember4<'a,'b,'c,'d> (options: Options) (Path pathA: Member<'a>) (Path pathB: Member<'b>) (Path pathC: Member<'c>) (Path pathD: Member<'d>) (script:Script) : Async<'a * 'b * 'c * 'd> =
     async {
       let! output = script |> getAssembly options
       return
-        output.Assembly |> Member.get<'a> pathA,
-        output.Assembly |> Member.get<'b> pathB,
-        output.Assembly |> Member.get<'c> pathC,
-        output.Assembly |> Member.get<'d> pathD
+        output.Assembly.Value |> Member.get<'a> pathA,
+        output.Assembly.Value |> Member.get<'b> pathB,
+        output.Assembly.Value |> Member.get<'c> pathC,
+        output.Assembly.Value |> Member.get<'d> pathD
     }

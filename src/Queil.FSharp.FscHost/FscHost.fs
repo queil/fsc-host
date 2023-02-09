@@ -238,26 +238,37 @@ module CompilerHost =
 
       let! metadataResult =
         async { 
+
+        let buildMetadata () =
+          async {
+            let source = File.ReadAllText filePath |> SourceText.ofString
+            let! projOptions, errors = checker.GetProjectOptionsFromScript(filePath, source)
+            
+            match errors with
+              | [] -> 
+                  let metadata = 
+                    { ScriptCache.Default 
+                          with
+                            FilePath = cacheFilePath
+                            SourceFiles = projOptions.SourceFiles |> Seq.toList                         
+                    }
+                  
+                  if options.Compiler.Standalone then return Ok metadata 
+                  else
+                    let! nugetPaths = resolveNugets projOptions
+                    return Ok ({metadata with NuGets = nugetPaths |> Seq.toList}) 
+              | errors -> return Error(errors)
+          }
+
         if File.Exists cacheFilePath then
-          return Ok (ScriptCache.Load cacheFilePath)
+          let c = ScriptCache.Load cacheFilePath
+          let allFilesExist = c.SourceFiles |> Seq.map File.Exists |> Seq.reduce (&&)
+          if not <| allFilesExist then
+            return! buildMetadata ()
+          else
+            return Ok c
         else
-          let source = File.ReadAllText filePath |> SourceText.ofString
-          let! projOptions, errors = checker.GetProjectOptionsFromScript(filePath, source)
-           
-          match errors with
-            | [] -> 
-                let metadata = 
-                  { ScriptCache.Default 
-                        with
-                          FilePath = cacheFilePath
-                          SourceFiles = projOptions.SourceFiles |> Seq.toList                         
-                  }
-                
-                if options.Compiler.Standalone then return Ok metadata 
-                else
-                  let! nugetPaths = resolveNugets projOptions
-                  return Ok ({metadata with NuGets = nugetPaths |> Seq.toList}) 
-            | errors -> return Error(errors)
+          return! buildMetadata ()
         }
 
       match metadataResult with

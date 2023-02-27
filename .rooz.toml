@@ -1,2 +1,2 @@
-image = "ghcr.io/queil/image:0.13.0-dotnet"
+image = "ghcr.io/queil/image:0.16.0-dotnet"
 shell = "bash"

@@ -4,7 +4,7 @@
     "net6.0": {
       "FSharp.Compiler.Service": {
         "type": "Direct",
-        "requested": "[41.0.7, )",
+        "requested": "[41.0.7, 41.0.7]",
         "resolved": "41.0.7",
         "contentHash": "9hnZKKutBr96xpu16gbdo8RTdPhjTG8FTtH8p/DPhVOoEoELBEl1bZiodiqdDLP+XDXHstZJo398XCVk7ohp+w==",
         "dependencies": {
@@ -38,7 +38,7 @@
       },
       "FSharp.Core": {
         "type": "Direct",
-        "requested": "[6.0.7, )",
+        "requested": "[6.0.7, 6.0.7]",
         "resolved": "6.0.7",
         "contentHash": "e6wGrq5smV3Yk2fBE/Y0nBG5oFyF59k5Je0a0QDydUpg6liyaafGjD3xvutciKepCP2knspZ/sWViC/F1OyyQQ=="
       },
@@ -1096,7 +1096,7 @@
     "net7.0": {
       "FSharp.Compiler.Service": {
         "type": "Direct",
-        "requested": "[43.7.400, )",
+        "requested": "[43.7.400, 43.7.400]",
         "resolved": "43.7.400",
         "contentHash": "lg3iNkZMvuj9hOxSJ0TM1/ntcFDPRQgr1+e4bLj/avNX3FkpUtPrzCRNRpy0VP8UCNa362al5NGkVWiihxjeUQ==",
         "dependencies": {
@@ -1112,7 +1112,7 @@
       },
       "FSharp.Core": {
         "type": "Direct",
-        "requested": "[7.0.400, )",
+        "requested": "[7.0.400, 7.0.400]",
         "resolved": "7.0.400",
         "contentHash": "kJQ7TBQqd1d2VoODSgwFSAaApaBN0Fuu8mZt2XExmd3UzUxLjUsMn5Y5XhpsUWdnxOL8amp7VFg7cwhPllR4Qw=="
       },

@@ -1,0 +1,5 @@
+image = "ghcr.io/queil/image:dotnet"
+shell = "bash"
+caches = [
+  "~/.nuget"
+]

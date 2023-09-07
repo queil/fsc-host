@@ -352,3 +352,4 @@ tests/unit/coverage.xml
 **/.fsc-host/cache
 
 **/.idea
+**/out

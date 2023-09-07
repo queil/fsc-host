@@ -166,7 +166,11 @@ let myFunc () = Json.Pointer.JsonPointer.Parse("/some").ToString()
 """
       let myFunc = invoke <| fun () ->
         Inline script |>
-          CompilerHost.getAssembly options |> Async.RunSynchronously |> Member.get<unit -> string> "Test.Script.myFunc"
+          
+          CompilerHost.getAssembly options 
+          |> Async.RunSynchronously
+          |> fun x -> x.Assembly.Value
+          |> Member.get<unit -> string> "Test.Script.myFunc"
       
       "Value should match" |> Expect.equal (myFunc ()) "/some"
     }
@@ -183,7 +187,10 @@ let export = "NOT_WORKED"
       invoke <| fun () ->
         let value =
           Inline script |>
-            CompilerHost.getAssembly opts |> Async.RunSynchronously |> Member.get<string> "Test.Script.export"
+            CompilerHost.getAssembly opts 
+            |> Async.RunSynchronously
+            |> fun x -> x.Assembly.Value
+            |> Member.get<string> "Test.Script.export"
         "Value should match" |> Expect.equal value "WORKED"
     }
   

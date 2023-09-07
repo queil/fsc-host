@@ -97,7 +97,10 @@ let cacheTests =
     testAsync "Override cache dir path" {
       let tmpPath = Path.Combine(Path.GetTempPath(), "fsc-host", Path.GetRandomFileName())
       Directory.CreateDirectory tmpPath |> ignore
-      let findDlls () = Directory.EnumerateFiles tmpPath |> Seq.tryFind (fun f -> f.EndsWith(".dll"))     
+      let findDlls () = 
+        Directory.EnumerateDirectories tmpPath 
+        |> Seq.tryHead 
+        |> Option.bind (Directory.EnumerateFiles >> Seq.tryFind (fun f -> f.EndsWith(".dll")))
       findDlls () |> Expecto.Flip.Expect.isNone "The cache dir should not contain dlls"
 
       let! _ = 
@@ -107,7 +110,7 @@ let cacheTests =
           cache_dir tmpPath
           log System.Console.WriteLine
         }
-      findDlls () |> Expecto.Flip.Expect.isSome "The cache dir should contain dlls"
+      findDlls () |> Expecto.Flip.Expect.isSome $"The cache dir %s{tmpPath} should contain dlls"
     }
     
     testAsync "Shouldn't cache if caching not enabled" {

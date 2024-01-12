@@ -121,5 +121,5 @@ The public API of this library comes in three flavours:
 Fix FSharp.Core package hash locally:
 
 ```sh
-docker run --rm -it  -v $(pwd):/build -w /build  mcr.microsoft.com/dotnet/sdk:7.0 dotnet restore --force-evaluate
+docker run --rm -it  -v $(pwd):/build -w /build  mcr.microsoft.com/dotnet/sdk:8.0 dotnet restore --force-evaluate
 ```

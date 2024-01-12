@@ -1,10 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net6.0;net7.0</TargetFrameworks>
+    <TargetFrameworks>net6.0;net7.0;net8.0</TargetFrameworks>
     <Authors>queil</Authors>
     <Description>Extend your F# apps with F# scripts</Description>
-    <Copyright>2021 - 2023 © queil</Copyright>
+    <Copyright>2021 - 2024 © queil</Copyright>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <RepositoryUrl>https://github.com/queil/fsc-host</RepositoryUrl>
     <FsDocsSourceRepository>https://github.com/queil/fsc-host/tree/main</FsDocsSourceRepository>
@@ -27,8 +27,13 @@
   </ItemGroup>
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'net7.0' " >
-    <PackageReference Include="FSharp.Compiler.Service" Version="[43.7.400]" />
-    <PackageReference Update="FSharp.Core" Version="[7.0.400]" />
+    <PackageReference Include="FSharp.Compiler.Service" Version="[43.7.403]" />
+    <PackageReference Update="FSharp.Core" Version="[7.0.403]" />
   </ItemGroup>
 
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net8.0' " >
+    <PackageReference Include="FSharp.Compiler.Service" Version="[43.8.101]" />
+    <PackageReference Update="FSharp.Core" Version="[8.0.101]" />
+  </ItemGroup>
+  
 </Project>

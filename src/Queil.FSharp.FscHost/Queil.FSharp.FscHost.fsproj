@@ -21,19 +21,23 @@
     <Compile Include="Plugin.fs" />
   </ItemGroup>
 
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net6.0' " >
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net6.0' ">
     <PackageReference Include="FSharp.Compiler.Service" Version="[41.0.7]" />
     <PackageReference Update="FSharp.Core" Version="[6.0.7]" />
   </ItemGroup>
 
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net7.0' " >
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net7.0' ">
     <PackageReference Include="FSharp.Compiler.Service" Version="[43.7.403]" />
     <PackageReference Update="FSharp.Core" Version="[7.0.403]" />
   </ItemGroup>
 
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net8.0' " >
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net8.0' ">
     <PackageReference Include="FSharp.Compiler.Service" Version="[43.8.101]" />
     <PackageReference Update="FSharp.Core" Version="[8.0.101]" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FSharp.DependencyManager.Paket" Version="8.0.3" />
   </ItemGroup>
   
 </Project>

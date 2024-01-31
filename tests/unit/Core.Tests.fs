@@ -360,13 +360,19 @@ module Func =
           }
 
           test "Should support Paket" {
-              let script = """ #r "paket: nuget FSharp.Data" """
+
+              let script = """ #r "paket: nuget Yzl" """
 
               let resultFunc =
                   invoke
-                  <| fun () -> Inline script |> CompilerHost.getAssembly options |> Async.RunSynchronously
+                  <| fun () ->
+                      Inline script
+                      |> CompilerHost.getAssembly
+                          { options with
+                              Compiler =
+                                  { options.Compiler with
+                                      PaketEnabled = true } }
+                      |> Async.RunSynchronously
 
-              let result = ""
-
-              "Values should be equal" |> Expect.equal result "Generic: (2.0, 8)"
+              ()
           } ]

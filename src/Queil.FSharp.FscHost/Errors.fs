@@ -1,4 +1,4 @@
-namespace Microsoft.FSharp.FscHost
+namespace Queil.FSharp.FscHost
 
 open System
 

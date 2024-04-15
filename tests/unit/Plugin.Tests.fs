@@ -1,8 +1,8 @@
-module Microsoft.FSharp.FscHost.Plugin.Tests
+module Queil.FSharp.FscHost.Plugin.Tests
 
 open System.IO
 open Expecto
-open Microsoft.FSharp.FscHost.Plugin
+open Queil.FSharp.FscHost.Plugin
 open System
 
 [<Tests>]

@@ -11,7 +11,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{E407C524
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Queil.FSharp.FscHost.Tests", "tests\unit\Queil.FSharp.FscHost.Tests.fsproj", "{A3BC9F79-88A2-4ED4-8849-A4388DC75C1D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Queil.FSharp.DependencyManager.Paket", "src\Queil.FSharp.DependencyManager.Paket\Queil.FSharp.DependencyManager.Paket.csproj", "{53AF7E45-0B91-499D-9B41-4022688FC32E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Queil.FSharp.DependencyManager.Paket", "src\Queil.FSharp.DependencyManager.Paket\Queil.FSharp.DependencyManager.Paket.fsproj", "{53AF7E45-0B91-499D-9B41-4022688FC32E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

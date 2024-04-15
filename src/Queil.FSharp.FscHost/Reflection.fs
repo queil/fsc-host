@@ -1,11 +1,11 @@
-namespace Microsoft.FSharp.FscHost
+namespace Queil.FSharp.FscHost
 
 open FSharp.Quotations
 open FSharp.Reflection
 open System
 open System.Collections.Generic
 open System.Reflection
-open Microsoft.FSharp.FscHost
+open Queil.FSharp.FscHost
 
 module internal Reflection =
 

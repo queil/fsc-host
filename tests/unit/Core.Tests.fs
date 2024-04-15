@@ -1,7 +1,7 @@
-module Microsoft.FSharp.FscHost.Core.Tests
+module Queil.FSharp.FscHost.Core.Tests
 
 open Expecto
-open Microsoft.FSharp.FscHost
+open Queil.FSharp.FscHost
 
 let options =
     { Options.Default with

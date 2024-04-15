@@ -198,7 +198,7 @@ module Countries =
                       |> ignore)
           }
 
-          test "Should load assembly" {
+          test "Should load assembly ID:2" {
               let script =
                   """
 module Test.Script
@@ -381,12 +381,7 @@ module X =
                   invoke
                   <| fun () ->
                       Inline script
-                      |> CompilerHost.getMember
-                          { options with
-                              Compiler =
-                                  { options.Compiler with
-                                      UsePaket = true } }
-                          (Member<unit -> unit>.Path("Script.X.x"))
+                      |> CompilerHost.getMember options (Member<unit -> unit>.Path("Script.X.x"))
                       |> Async.RunSynchronously
 
               ()

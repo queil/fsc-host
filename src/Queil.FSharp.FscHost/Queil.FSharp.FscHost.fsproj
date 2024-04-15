@@ -17,6 +17,7 @@
   <ItemGroup>
     <Compile Include="Errors.fs" />
     <Compile Include="Reflection.fs" />
+    <Compile Include="Utils.fs" />
     <Compile Include="FscHost.fs" />
     <Compile Include="Plugin.fs" />
   </ItemGroup>

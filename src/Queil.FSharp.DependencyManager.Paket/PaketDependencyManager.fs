@@ -56,13 +56,13 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                 packageManagerTextLinesFromScript: string seq
             ) =
 
-            let tmpDir = scriptName.Replace(fileType, "paket")
-            Directory.CreateDirectory(tmpDir) |> ignore
+            let workDir = scriptName.Replace(fileType, "paket")
+            Directory.CreateDirectory(workDir) |> ignore
 
             let depsFile =
-                match Dependencies.TryLocate(tmpDir) with
+                match Dependencies.TryLocate(workDir) with
                 | None ->
-                    Dependencies.Init(tmpDir)
+                    Dependencies.Init(workDir)
 
                     let depLines =
                         packageManagerTextLinesFromScript
@@ -70,7 +70,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                         |> Seq.collect (id)
                         |> Seq.map (fun s -> s.Trim())
 
-                    let depsFile = Dependencies.Locate(tmpDir)
+                    let depsFile = Dependencies.Locate(workDir)
                     File.AppendAllLines(depsFile.DependenciesFile, depLines)
                     depsFile
 

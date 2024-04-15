@@ -2,19 +2,17 @@
 
 module Script =
 
-  let private assembly =
-    File "script.fsx"
-    |> CompilerHost.getAssembly Options.Default
-    |> Async.RunSynchronously
+    let private assembly =
+        File "script.fsx"
+        |> CompilerHost.getAssembly Options.Default
+        |> Async.RunSynchronously
 
-  let generic<'a, 'b> =
-    assembly |> Member.get<'a * 'b -> string> "Script.generic"
+    let generic<'a, 'b> = assembly |> Member.get<'a * 'b -> string> "Script.generic"
 
-  let helloFromScript =
-    assembly |> Member.get<string -> string> "Script.helloFromScript"
+    let helloFromScript =
+        assembly |> Member.get<string -> string> "Script.helloFromScript"
 
-  let myPrimes =
-    assembly |> Member.get<int list> "Script.myPrimes"
+    let myPrimes = assembly |> Member.get<int list> "Script.myPrimes"
 
 open Script
 

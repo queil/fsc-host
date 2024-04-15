@@ -1091,6 +1091,12 @@
         "dependencies": {
           "System.Drawing.Common": "4.7.0"
         }
+      },
+      "queil.fsharp.dependencymanager.paket": {
+        "type": "Project",
+        "dependencies": {
+          "FSharp.Core": "[6.0.7, 6.0.7]"
+        }
       }
     },
     "net7.0": {
@@ -1153,6 +1159,12 @@
         "type": "Transitive",
         "resolved": "6.0.0",
         "contentHash": "/iUeP3tq1S0XdNNoMz5C9twLSrM/TH+qElHkXWaPvuNOt+99G75NrV0OS2EqHx5wMN7popYjpc8oTjC1y16DLg=="
+      },
+      "queil.fsharp.dependencymanager.paket": {
+        "type": "Project",
+        "dependencies": {
+          "FSharp.Core": "[7.0.403, 7.0.403]"
+        }
       }
     },
     "net8.0": {
@@ -1215,6 +1227,12 @@
         "type": "Transitive",
         "resolved": "6.0.0",
         "contentHash": "/iUeP3tq1S0XdNNoMz5C9twLSrM/TH+qElHkXWaPvuNOt+99G75NrV0OS2EqHx5wMN7popYjpc8oTjC1y16DLg=="
+      },
+      "queil.fsharp.dependencymanager.paket": {
+        "type": "Project",
+        "dependencies": {
+          "FSharp.Core": "[8.0.101, 8.0.101]"
+        }
       }
     }
   }

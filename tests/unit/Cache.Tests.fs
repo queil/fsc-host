@@ -1,8 +1,8 @@
-module Queil.FSharp.FscHost.Cache.Tests
+module Microsoft.FSharp.FscHost.Cache.Tests
 
 open System.Diagnostics
 open Expecto
-open Queil.FSharp.FscHost.Plugin
+open Microsoft.FSharp.FscHost.Plugin
 open System.IO
 
 [<Tests>]

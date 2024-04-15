@@ -1,4 +1,4 @@
-﻿namespace Queil.FSharp.FscHost
+namespace Microsoft.FSharp.FscHost
 
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Diagnostics
@@ -23,7 +23,8 @@ type CompilerOptions =
       TargetProfile: string
       WarningLevel: int
       Symbols: string list
-      Standalone: bool }
+      Standalone: bool
+      UsePaket: bool}
 
     static member Default =
         { Args =
@@ -44,14 +45,26 @@ type CompilerOptions =
                       $"--define:%s{s}"
                   match opts.Standalone with
                   | true -> "--standalone"
-                  | _ -> () ]
+                  | _ -> () 
+                  match opts.UsePaket with
+                  | true ->
+                      let paketDepsManagerDll =
+                          Path.Combine(
+                              Path.GetDirectoryName(Assembly.GetEntryAssembly().Location),
+                              nameof(Queil.FSharp.DependencyManager.Paket)
+                          )
+
+                      $"--compilertool:%s{paketDepsManagerDll}.dll"
+                  |_ -> ()
+                  ]
           IncludeHostEntryAssembly = true
           LangVersion = None
           Target = "library"
           TargetProfile = "netcore"
           WarningLevel = 3
           Symbols = []
-          Standalone = false }
+          Standalone = false
+          UsePaket = false }
 
 type CompileOutput =
     { AssemblyFilePath: string
@@ -93,7 +106,7 @@ type Options =
       CacheDir: string
       Logger: string -> unit
       LogListTypes: bool
-      AutoLoadNugetReferences: bool }
+      AutoLoadNugetReferences: bool}
 
     static member Default =
         { Compiler = CompilerOptions.Default

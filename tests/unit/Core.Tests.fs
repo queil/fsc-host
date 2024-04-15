@@ -1,7 +1,7 @@
-module Queil.FSharp.FscHost.Core.Tests
+module Microsoft.FSharp.FscHost.Core.Tests
 
 open Expecto
-open Queil.FSharp.FscHost
+open Microsoft.FSharp.FscHost
 
 let options =
     { Options.Default with
@@ -357,4 +357,30 @@ module Func =
               let result = resultFunc (2.0, 8) <| fun (a, b) -> $"Generic: (%f{a}, %i{b})"
 
               "Values should be equal" |> Expect.equal result "Generic: (2.000000, 8)"
-          } ]
+          }
+
+
+          test "Should support Paket" {
+
+              let script = """
+#r "paket: nuget Yzl"
+
+module X =
+
+    open Yzl
+
+    let x () = 10 |> Yzl.render |> printfn "%s"
+"""
+
+              let resultFunc =
+                  invoke
+                  <| fun () ->
+                      Inline script
+                      |> CompilerHost.getMember { options with  Compiler = {options.Compiler with UsePaket = true }}  (Member<unit -> unit>.Path("X.x"))
+                      |> Async.RunSynchronously
+
+              ()
+              resultFunc()
+          }
+
+          ]

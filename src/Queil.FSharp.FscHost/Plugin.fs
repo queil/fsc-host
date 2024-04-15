@@ -1,6 +1,6 @@
-namespace Queil.FSharp.FscHost
+namespace Microsoft.FSharp.FscHost
 
-open Queil.FSharp.FscHost
+open Microsoft.FSharp.FscHost
 open System
 
 module Plugin =

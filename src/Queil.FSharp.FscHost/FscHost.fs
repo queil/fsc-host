@@ -1,4 +1,4 @@
-﻿namespace Queil.FSharp.FscHost
+namespace Queil.FSharp.FscHost
 
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Diagnostics
@@ -224,22 +224,6 @@ module CompilerHost =
 
     open Internals
 
-    let resolveNugets (projOptions: FSharpProjectOptions) =
-        async {
-            let! projResults = checker.ParseAndCheckProject(projOptions)
-
-            return
-                match projResults.HasCriticalErrors with
-                | false ->
-                    projResults.DependencyFiles
-                    |> Seq.choose (function
-                        | path when path.EndsWith(".dll") -> Some path
-                        | _ -> None)
-                    |> Seq.groupBy id
-                    |> Seq.map fst
-                | _ -> raise (ScriptParseError(projResults.Diagnostics |> Seq.map string))
-        }
-
     let getAssembly (options: Options) (script: Script) : Async<CompileOutput> =
         let filePath = script |> ensureScriptFile
 
@@ -271,12 +255,20 @@ module CompilerHost =
                                 if options.Compiler.Standalone then
                                     return Ok metadata
                                 else
-                                    let! nugetPaths = resolveNugets projOptions
-
                                     return
                                         Ok(
                                             { metadata with
-                                                NuGets = nugetPaths |> Seq.toList }
+                                                NuGets =
+                                                    metadata.SourceFiles
+                                                    |> Seq.filter (fun p ->
+                                                        p.Contains("/.packagemanagement/nuget/")
+                                                        || p.Contains("/.paket/load/"))
+                                                    |> Seq.collect File.ReadAllLines
+                                                    |> Seq.choose (function
+                                                        | Utils.ParseRegex """^#r @?"(.*\.dll)"\s?$""" [ dllPath ] ->
+                                                            Some(dllPath)
+                                                        | _ -> None)
+                                                    |> Seq.toList }
                                         )
                             | errors -> return Error(errors)
                         }

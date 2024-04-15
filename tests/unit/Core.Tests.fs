@@ -198,7 +198,7 @@ module Countries =
                       |> ignore)
           }
 
-          test "Should load assembly" {
+          test "Should load assembly ID:2" {
               let script =
                   """
 module Test.Script
@@ -357,4 +357,35 @@ module Func =
               let result = resultFunc (2.0, 8) <| fun (a, b) -> $"Generic: (%f{a}, %i{b})"
 
               "Values should be equal" |> Expect.equal result "Generic: (2.000000, 8)"
-          } ]
+          }
+
+
+          test "Should support Paket" {
+
+
+
+              let script =
+                  """
+#r "paket: nuget Yzl"
+
+namespace Script
+
+module X =
+
+    open Yzl
+
+    let x () = 10 |> Yzl.render |> printfn "%s"
+"""
+
+              let resultFunc =
+                  invoke
+                  <| fun () ->
+                      Inline script
+                      |> CompilerHost.getMember options (Member<unit -> unit>.Path("Script.X.x"))
+                      |> Async.RunSynchronously
+
+              ()
+              resultFunc ()
+          }
+
+          ]

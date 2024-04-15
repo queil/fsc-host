@@ -366,9 +366,7 @@ module Func =
 
               let script =
                   """
-#r "paket: nuget Yzl
-    github forki/FsUnit FsUnit.fs
-"
+#r "paket: nuget Yzl"
 
 namespace Script
 

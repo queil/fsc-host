@@ -366,7 +366,9 @@ module Func =
 
               let script =
                   """
-#r "paket: nuget Yzl"
+#r "paket: nuget Yzl
+    github forki/FsUnit FsUnit.fs
+"
 
 namespace Script
 
@@ -394,11 +396,3 @@ module X =
           }
 
           ]
-
-//  github forki/FsUnit FsUnit.fs
-
-
-//   gist Thorium/1972349 timestamp.fs
-
-// HTTP resources.
-//     http http://www.fssnip.net/1n decrypt.fs

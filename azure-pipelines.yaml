@@ -42,6 +42,6 @@ steps:
     verbosityPack: 'Normal'
   condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
 
-- bash: dotnet nuget push -s  https://api.nuget.org/v3/index.json -k $(nuget-api-key) $(Build.ArtifactStagingDirectory)/Queil.FSharp.FscHost.nupkg
+- bash: dotnet nuget push -s  https://api.nuget.org/v3/index.json -k $(nuget-api-key) $(Build.ArtifactStagingDirectory)/Queil.FSharp.FscHost.*.nupkg
   displayName: 'Push'
   condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))

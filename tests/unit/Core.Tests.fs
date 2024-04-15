@@ -362,8 +362,13 @@ module Func =
 
           test "Should support Paket" {
 
-              let script = """
+
+
+              let script =
+                  """
 #r "paket: nuget Yzl"
+
+namespace Script
 
 module X =
 
@@ -376,11 +381,24 @@ module X =
                   invoke
                   <| fun () ->
                       Inline script
-                      |> CompilerHost.getMember { options with  Compiler = {options.Compiler with UsePaket = true }}  (Member<unit -> unit>.Path("X.x"))
+                      |> CompilerHost.getMember
+                          { options with
+                              Compiler =
+                                  { options.Compiler with
+                                      UsePaket = true } }
+                          (Member<unit -> unit>.Path("Script.X.x"))
                       |> Async.RunSynchronously
 
               ()
-              resultFunc()
+              resultFunc ()
           }
 
           ]
+
+//  github forki/FsUnit FsUnit.fs
+
+
+//   gist Thorium/1972349 timestamp.fs
+
+// HTTP resources.
+//     http http://www.fssnip.net/1n decrypt.fs

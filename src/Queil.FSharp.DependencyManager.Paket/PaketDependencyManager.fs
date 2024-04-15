@@ -1,18 +1,26 @@
 namespace Queil.FSharp.DependencyManager.Paket
 
 open System
+open System.IO
+open Paket
 
 [<AttributeUsage(AttributeTargets.Assembly ||| AttributeTargets.Class, AllowMultiple = false)>]
 type DependencyManagerAttribute() =
     inherit Attribute()
 
-
 module Attributes =
-    [<assembly: DependencyManager()>]
+    [<assembly: DependencyManager>]
     do ()
 
 type ResolveDependenciesResult
-    (success: bool, stdOut: string array, stdError: string array, resolutions: string seq, sourceFiles: string seq, roots: string seq) =
+    (
+        success: bool,
+        stdOut: string array,
+        stdError: string array,
+        resolutions: string seq,
+        sourceFiles: string seq,
+        roots: string seq
+    ) =
     member _.Success = success
     member _.StdOut = stdOut
     member _.StdError = stdError
@@ -20,36 +28,96 @@ type ResolveDependenciesResult
     member _.SourceFiles = sourceFiles
     member _.Roots = roots
 
-
-[<DependencyManager()>]
+[<DependencyManager>]
 type PaketDependencyManager(outputDirectory: string option, useResultsCache: bool) =
-    do 
-        printfn "INSTANCE CREATED"
-    
-    member _.Name = "paget"
+    member _.Name = "paket"
     member _.Key = "paket"
 
-    member _.HelpMessages : string list = []
+    member _.HelpMessages: string list = []
 
     member _.ClearResultsCache = fun () -> ()
 
-    member x.ResolveDependencies(scriptDir: string, mainScriptName: string, scriptName: string, packageManagerTextLines: string seq, targetFramework: string) : ResolveDependenciesResult =
+    member _.ResolveDependencies
+        (
+            scriptDir: string,
+            mainScriptName: string,
+            scriptName: string,
+            packageManagerTextLines: string seq,
+            targetFramework: string
+        ) : ResolveDependenciesResult =
 
-        printfn "been here"
+        let resolveDependenciesForLanguage
+            (
+                fileType,
+                targetFramework: string,
+                prioritizedSearchPaths: string seq,
+                scriptDir: string,
+                scriptName: string,
+                packageManagerTextLinesFromScript: string seq
+            ) =
+
+            let tmpDir = scriptName.Replace(fileType, "paket")
+            Directory.CreateDirectory(tmpDir) |> ignore
+
+            let depsFile =
+                match Dependencies.TryLocate(tmpDir) with
+                | None ->
+                    Dependencies.Init(tmpDir)
+
+                    let depLines =
+                        packageManagerTextLinesFromScript
+                        |> Seq.map (fun s -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
+                        |> Seq.collect (id)
+                        |> Seq.map (fun s -> s.Trim())
+
+                    let depsFile = Dependencies.Locate(tmpDir)
+                    File.AppendAllLines(depsFile.DependenciesFile, depLines)
+                    depsFile
+
+                | Some depsFile -> depsFile
+
+            depsFile.Install(false)
+            depsFile.GenerateLoadScripts [] [ targetFramework ] [ fileType ]
+
+            let loadScriptsPath =
+                Path.Combine(depsFile.RootPath, ".paket/load", targetFramework, $"main.group.{fileType}")
+
+            (loadScriptsPath, [])
+
+        let resolveDependencies
+            (
+                targetFramework: string,
+                scriptDir: string,
+                scriptName: string,
+                packageManagerTextLinesFromScript: string seq
+            ) =
+            let extension =
+                if scriptName.ToLowerInvariant().EndsWith(".fsx") then
+                    "fsx"
+                elif scriptName.ToLowerInvariant().EndsWith(".csx") then
+                    "csx"
+                else
+                    // default to F# in case the calling process doesn't honour giving the script name to discriminate on
+                    "fsx"
+
+            resolveDependenciesForLanguage (
+                extension,
+                targetFramework,
+                Seq.empty,
+                scriptDir,
+                scriptName,
+                packageManagerTextLinesFromScript
+            )
+
         let scriptDir =
-            if scriptDir = System.String.Empty then
-                System.Environment.CurrentDirectory
+            if scriptDir = String.Empty then
+                Environment.CurrentDirectory
             else
                 scriptDir
 
         try
             let loadScript, additionalIncludeDirs =
-                ReferenceLoading.PaketHandler.ResolveDependencies(
-                    targetFramework,
-                    scriptDir,
-                    scriptName,
-                    packageManagerTextLines
-                )
+                resolveDependencies (targetFramework, scriptDir, scriptName, packageManagerTextLines)
 
             let resolutions =
                 // https://github.com/dotnet/fsharp/pull/10224#issue-498147879

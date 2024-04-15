@@ -19,8 +19,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="ReferenceLoading.PaketHandler.fs" />
     <Compile Include="PaketDependencyManager.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Paket.Core" Version="8.0.3" />
   </ItemGroup>
 
 </Project>

@@ -24,7 +24,7 @@ type CompilerOptions =
       WarningLevel: int
       Symbols: string list
       Standalone: bool
-      UsePaket: bool}
+      UsePaket: bool }
 
     static member Default =
         { Args =
@@ -45,18 +45,17 @@ type CompilerOptions =
                       $"--define:%s{s}"
                   match opts.Standalone with
                   | true -> "--standalone"
-                  | _ -> () 
+                  | _ -> ()
                   match opts.UsePaket with
                   | true ->
                       let paketDepsManagerDll =
                           Path.Combine(
                               Path.GetDirectoryName(Assembly.GetEntryAssembly().Location),
-                              nameof(Queil.FSharp.DependencyManager.Paket)
+                              nameof (Queil.FSharp.DependencyManager.Paket)
                           )
 
                       $"--compilertool:%s{paketDepsManagerDll}.dll"
-                  |_ -> ()
-                  ]
+                  | _ -> () ]
           IncludeHostEntryAssembly = true
           LangVersion = None
           Target = "library"
@@ -106,7 +105,7 @@ type Options =
       CacheDir: string
       Logger: string -> unit
       LogListTypes: bool
-      AutoLoadNugetReferences: bool}
+      AutoLoadNugetReferences: bool }
 
     static member Default =
         { Compiler = CompilerOptions.Default

@@ -39,6 +39,8 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
     member _.ResolveDependencies
         (
+            // DO NOT USE. It is only correct for GetProjectOptionsFromScript. Incorrect for Compile (points to the current working dir)
+            // Use the directory from scriptName
             scriptDir: string,
             scriptName: string,
             scriptExt: string,
@@ -49,10 +51,13 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
         ) : obj =
 
         try
-            let scriptExt = scriptExt[1..];
-            let paketDir = Path.Combine(scriptDir, ".paket")
-            Directory.Delete(paketDir, true)
-            Dependencies.Init(scriptDir)
+            let scriptExt = scriptExt[1..]
+            let fschPaketDir = Path.Combine(Path.GetDirectoryName scriptName, ".paket-fsch")
+
+            if Directory.Exists fschPaketDir then
+                Directory.Delete(fschPaketDir, true)
+
+            Dependencies.Init(fschPaketDir)
 
             let depLines =
                 packageManagerTextLines
@@ -60,7 +65,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                 |> Seq.collect (id)
                 |> Seq.map (fun s -> s.Trim())
 
-            let depsFile = Dependencies.Locate(scriptDir)
+            let depsFile = Dependencies.Locate(fschPaketDir)
             File.AppendAllLines(depsFile.DependenciesFile, depLines)
             depsFile.Install(false)
             depsFile.GenerateLoadScripts [] [ targetFrameworkMoniker ] [ scriptExt ]

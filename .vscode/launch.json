@@ -6,7 +6,7 @@
     "request": "launch",
     "preLaunchTask": "build",
     "program": "${workspaceFolder}/tests/unit/bin/Debug/net8.0/Queil.FSharp.FscHost.Tests.dll",
-    "args": ["--filter-test-case", "Paket"],
+    "args": ["--filter-test-case", "Override cache dir path"],
     "cwd": "${workspaceFolder}",
     "stopAtEntry": false,
     "console": "internalConsole"

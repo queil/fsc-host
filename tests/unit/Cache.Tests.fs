@@ -96,9 +96,7 @@ let cacheTests =
               Directory.CreateDirectory tmpPath |> ignore
 
               let findDlls () =
-                  Directory.EnumerateDirectories tmpPath
-                  |> Seq.tryHead
-                  |> Option.bind (Directory.EnumerateFiles >> Seq.tryFind (fun f -> f.EndsWith(".dll")))
+                  Directory.EnumerateFiles tmpPath |> Seq.tryFind (fun f -> f.EndsWith(".dll"))
 
               findDlls ()
               |> Expecto.Flip.Expect.isNone "The cache dir should not contain dlls"

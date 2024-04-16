@@ -14,6 +14,12 @@ module private Const =
     [<Literal>]
     let FschDir = ".fsch"
 
+    [<Literal>]
+    let FschDeps = "fsch.deps"
+
+    [<Literal>]
+    let InlineFsx = "inline.fsx"
+
 type Script =
     | File of path: string
     | Inline of body: string
@@ -94,7 +100,7 @@ type ScriptCache =
 type Options =
     { Compiler: CompilerOptions
       UseCache: bool
-      AssetsDir: string
+      CacheDir: string option
       Logger: string -> unit
       LogListTypes: bool
       AutoLoadNugetReferences: bool }
@@ -102,7 +108,7 @@ type Options =
     static member Default =
         { Compiler = CompilerOptions.Default
           UseCache = false
-          AssetsDir = Path.Combine(Const.FschDir, "assets")
+          CacheDir = None
           Logger = ignore
           LogListTypes = false
           AutoLoadNugetReferences = true }
@@ -124,10 +130,9 @@ module CompilerHost =
 
         let short (s: string) = s[0..10].ToLowerInvariant()
 
-        let deepSourceHash sourceFiles  = 
-        
-            let fileHash filePath =
-                File.ReadAllText filePath |> sha256
+        let deepSourceHash sourceFiles =
+
+            let fileHash filePath = File.ReadAllText filePath |> sha256
 
             let combinedHash =
                 sourceFiles
@@ -141,24 +146,28 @@ module CompilerHost =
     module private Internals =
         let checker = FSharpChecker.Create()
 
-        let ensureScriptFile (script: Script) =
+        let ensureScriptFile (cacheDir: string option) (script: Script) =
             let getScriptFilePath =
                 function
-                | File path -> path
+                | File path -> (path, Path.GetDirectoryName path)
                 | Inline body ->
-                    Path.Combine(Path.GetTempPath(), Const.FschDir, body |> (Hash.sha256 >> Hash.short), "inline.fsx")
+                    let shallowHash = body |> Hash.sha256 |> Hash.short
+                    let dir = Path.Combine(Path.GetTempPath(), Const.FschDir, shallowHash)
+                    let filePath = Path.Combine(dir, Const.InlineFsx)
+                    (filePath, dir)
 
             let createInlineScriptFile (filePath: string) =
                 function
-                | Inline body -> 
+                | Inline body ->
                     filePath |> Path.GetDirectoryName |> Directory.CreateDirectory |> ignore
                     File.WriteAllText(filePath, body)
                 | _ -> ()
 
-            let path = script |> getScriptFilePath
+            let scriptFilePath, scriptDir = script |> getScriptFilePath
 
-            script |> createInlineScriptFile path
-            (path, File.ReadAllText(path) |> Hash.sha256 |> Hash.short)
+            script |> createInlineScriptFile scriptFilePath
+
+            (scriptFilePath, cacheDir |> Option.defaultValue scriptDir)
 
         let compileScript (entryFilePath: string) (metadata: ScriptCache) (options: Options) : Async<CompileOutput> =
 
@@ -171,11 +180,19 @@ module CompilerHost =
                     path |> Assembly.LoadFrom |> ignore)
 
             async {
-                Directory.CreateDirectory options.AssetsDir |> ignore
+                options.CacheDir |> Option.iter (Directory.CreateDirectory >> ignore)
 
                 let outputDllName =
-                    let hash = Hash.deepSourceHash metadata.SourceFiles
-                    Path.Combine(options.AssetsDir.TrimEnd('\\', '/'), $"{hash}.dll")
+                    if options.UseCache then
+                        let hash = Hash.deepSourceHash metadata.SourceFiles
+
+                        Path.Combine(
+                            (options.CacheDir |> Option.defaultValue (Path.GetDirectoryName entryFilePath))
+                                .TrimEnd('\\', '/'),
+                            $"{hash}.dll"
+                        )
+                    else
+                        $"{Path.GetTempFileName()}.dll"
 
                 match outputDllName with
                 | path when File.Exists path ->
@@ -232,12 +249,12 @@ module CompilerHost =
 
 
         async {
-            let (rootFilePath, shallowSourceHash) = script |> ensureScriptFile
-            let workDir = Path.Combine(options.AssetsDir, shallowSourceHash)
+            let (rootFilePath, scriptDir) = script |> ensureScriptFile options.CacheDir
 
-            Directory.CreateDirectory workDir |> ignore
 
-            let cacheFilePath = Path.Combine(workDir, "cache")
+            Directory.CreateDirectory scriptDir |> ignore
+
+            let cacheFilePath = Path.Combine(scriptDir, Const.FschDeps)
 
             let! metadataResult =
                 async {
@@ -291,7 +308,13 @@ module CompilerHost =
             match metadataResult with
             | Ok metadata ->
                 metadata.Save()
-                return! compileScript rootFilePath metadata { options with AssetsDir = workDir }
+
+                return!
+                    compileScript
+                        rootFilePath
+                        metadata
+                        { options with
+                            CacheDir = Some scriptDir }
             | Error errors -> return raise (ScriptParseError(errors |> Seq.map string))
         }
 

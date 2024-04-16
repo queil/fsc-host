@@ -32,8 +32,9 @@ type ResolveDependenciesResult
 module PaketPaths =
   let internal scriptRootPaketDir (scriptFilePath:string) = Path.Combine(Path.GetTempPath(), scriptFilePath |> Path.GetDirectoryName , ".fsch")
   let internal mainGroupFile (tfm:string) (ext:string) = $"%s{tfm}/main.group.%s{ext}"
-  let loadingScriptsDir scriptFilePath (tfm:string) (ext:string)  = 
+  let internal loadingScriptsDir scriptFilePath (tfm:string) (ext:string)  = 
     Path.Combine(scriptFilePath |> scriptRootPaketDir, Constants.PaketFolderName, "load", mainGroupFile tfm ext)
+  let paketFilesDir = Path.Combine(".fsch", Constants.PaketFilesFolderName)
 
 [<DependencyManager>]
 type PaketDependencyManager(outputDirectory: string option, useResultsCache: bool) =
@@ -66,11 +67,23 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
             let depsFile = Dependencies.Locate(fschPaketDir)
             let existingLines = depsFile.GetDependenciesFile().Lines
 
+            let preProcess (line: string) = 
+                let parsed = 
+                  DependenciesFileParser.parseDependencyLine line
+                  |> Seq.toList
+                let processed =
+                    match parsed with
+                    | "github"::path::tail when not <| path.Contains(":") ->
+                    "github"::$"{path}:main"::tail
+                    | s -> s
+                processed |> String.concat " "
+
             let newLines =
                 packageManagerTextLines
-                |> Seq.map (fun (_, s) -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
+                |> Seq.map (fun (_,s) -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
                 |> Seq.collect (id)
                 |> Seq.map (fun s -> s.Trim())
+                |> Seq.map (preProcess)
                 |> Seq.filter (fun line ->  existingLines |> Seq.contains(line) |> not)
                 |> Seq.toList
 

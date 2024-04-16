@@ -8,6 +8,7 @@ open System.IO
 open System.Reflection
 open System.Text
 open System.Security.Cryptography
+open Queil.FSharp.DependencyManager.Paket
 
 [<RequireQualifiedAccess>]
 module private Const =
@@ -172,7 +173,7 @@ module CompilerHost =
 
             (scriptFilePath, scriptDir, cacheDir)
 
-        let compileScript (entryFilePath: string) (metadata: ScriptCache) (options: Options) : Async<CompileOutput> =
+        let compileScript (rootFilePath: string) (metadata: ScriptCache) (options: Options) : Async<CompileOutput> =
 
             let log = options.Logger
 
@@ -212,8 +213,14 @@ module CompilerHost =
                         metadata.NuGets |> loadNuGetAssemblies
 
                     let compilerArgs =
-                        [ yield! options.Compiler.Args entryFilePath refs options.Compiler
-                          $"--out:{path}" ]
+
+                        let paketFilesDir = PaketPaths.paketFilesDir
+                        [ yield! options.Compiler.Args rootFilePath refs options.Compiler
+                          $"--out:{path}"
+                          if Directory.Exists(Path.Combine(FileInfo(rootFilePath).DirectoryName, paketFilesDir)) then
+                            $"--lib:{paketFilesDir}"
+                          else ()
+                        ]
 
                     log (sprintf "Compiling with args: %s" (compilerArgs |> String.concat " "))
 
@@ -227,6 +234,7 @@ module CompilerHost =
 
                     let getAssembly () =
                         async {
+                            Directory.SetCurrentDirectory(FileInfo(rootFilePath).DirectoryName)
                             let! errors, _ = checker.Compile(compilerArgs |> List.toArray, "None")
                             return getAssemblyOrThrow errors (fun () -> path |> Path.GetFullPath |> Assembly.LoadFile)
                         }
@@ -261,7 +269,15 @@ module CompilerHost =
                         async {
 
                             let source = File.ReadAllText rootFilePath |> SourceText.ofString
-                            let! projOptions, errors = checker.GetProjectOptionsFromScript(rootFilePath, source)
+                            let paketFilesDir = PaketPaths.paketFilesDir
+                            let otherFlags = [|
+                                if Directory.Exists(Path.Combine(scriptDir, paketFilesDir)) then
+                                    $"--lib:{paketFilesDir}"
+                                else ()
+                            |]
+                            let! projOptions, errors = checker.GetProjectOptionsFromScript(rootFilePath, source,otherFlags=otherFlags, previewEnabled=true)
+
+                            
 
                             match errors with
                             | [] ->

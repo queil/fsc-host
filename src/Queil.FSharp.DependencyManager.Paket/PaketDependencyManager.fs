@@ -40,92 +40,35 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
     member _.ResolveDependencies
         (
             scriptDir: string,
-            mainScriptName: string,
             scriptName: string,
-            packageManagerTextLines: string seq,
-            targetFramework: string
-        ) : ResolveDependenciesResult =
-
-        let resolveDependenciesForLanguage
-            (
-                fileType,
-                targetFramework: string,
-                prioritizedSearchPaths: string seq,
-                scriptDir: string,
-                scriptName: string,
-                packageManagerTextLinesFromScript: string seq
-            ) =
-
-            let workDir = scriptName.Replace(fileType, "paket")
-            Directory.CreateDirectory(workDir) |> ignore
-
-            let depsFile =
-                match Dependencies.TryLocate(workDir) with
-                | None ->
-                    Dependencies.Init(workDir)
-
-                    let depLines =
-                        packageManagerTextLinesFromScript
-                        |> Seq.map (fun s -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
-                        |> Seq.collect (id)
-                        |> Seq.map (fun s -> s.Trim())
-
-                    let depsFile = Dependencies.Locate(workDir)
-                    File.AppendAllLines(depsFile.DependenciesFile, depLines)
-                    depsFile
-
-                | Some depsFile -> depsFile
-
-            depsFile.Install(false)
-            depsFile.GenerateLoadScripts [] [ targetFramework ] [ fileType ]
-
-            let loadScriptsPath =
-                Path.Combine(depsFile.RootPath, ".paket/load", targetFramework, $"main.group.{fileType}")
-
-            (loadScriptsPath, [])
-
-        let resolveDependencies
-            (
-                targetFramework: string,
-                scriptDir: string,
-                scriptName: string,
-                packageManagerTextLinesFromScript: string seq
-            ) =
-            let extension =
-                if scriptName.ToLowerInvariant().EndsWith(".fsx") then
-                    "fsx"
-                elif scriptName.ToLowerInvariant().EndsWith(".csx") then
-                    "csx"
-                else
-                    // default to F# in case the calling process doesn't honour giving the script name to discriminate on
-                    "fsx"
-
-            resolveDependenciesForLanguage (
-                extension,
-                targetFramework,
-                Seq.empty,
-                scriptDir,
-                scriptName,
-                packageManagerTextLinesFromScript
-            )
-
-        let scriptDir =
-            if scriptDir = String.Empty then
-                Environment.CurrentDirectory
-            else
-                scriptDir
+            scriptExt: string,
+            packageManagerTextLines: (string * string) seq,
+            targetFrameworkMoniker: string,
+            runtimeIdentifier: string,
+            timeout: int
+        ) : obj =
 
         try
-            let loadScript, additionalIncludeDirs =
-                resolveDependencies (targetFramework, scriptDir, scriptName, packageManagerTextLines)
+            let scriptExt = scriptExt[1..];
+            let paketDir = Path.Combine(scriptDir, ".paket")
+            Directory.Delete(paketDir, true)
+            Dependencies.Init(scriptDir)
 
-            let resolutions =
-                // https://github.com/dotnet/fsharp/pull/10224#issue-498147879
-                // if load script causes problem
-                // consider changing this to be the list of all assemblies to load rather than passing through a load script
-                []
+            let depLines =
+                packageManagerTextLines
+                |> Seq.map (fun (_, s) -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
+                |> Seq.collect (id)
+                |> Seq.map (fun s -> s.Trim())
 
-            ResolveDependenciesResult(true, [||], [||], resolutions, [ loadScript ], additionalIncludeDirs)
+            let depsFile = Dependencies.Locate(scriptDir)
+            File.AppendAllLines(depsFile.DependenciesFile, depLines)
+            depsFile.Install(false)
+            depsFile.GenerateLoadScripts [] [ targetFrameworkMoniker ] [ scriptExt ]
+
+            let loadScriptsPath =
+                Path.Combine(depsFile.RootPath, ".paket/load", targetFrameworkMoniker, $"main.group.{scriptExt}")
+
+            ResolveDependenciesResult(true, [||], [||], [], [ loadScriptsPath ], [])
         with e ->
             printfn "exception while resolving dependencies: %s" (string e)
-            ResolveDependenciesResult(false, [||], [||], [||], [||], [||])
+            ResolveDependenciesResult(false, [||], [||], [], [], [])

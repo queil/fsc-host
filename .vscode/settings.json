@@ -1,5 +1,10 @@
 {
     "FSharp.inlayHints.typeAnnotations": false,
     "FSharp.inlayHints.enabled": false,
-    "editor.inlayHints.enabled": "offUnlessPressed"
+    "editor.inlayHints.enabled": "offUnlessPressed",
+    "cSpell.words": [
+        "Expecto",
+        "paket",
+        "Queil"
+    ]
 }

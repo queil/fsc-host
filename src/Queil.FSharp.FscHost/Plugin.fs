@@ -66,7 +66,7 @@ module Plugin =
         member x.CacheDir(state: CommonBuilder, cacheDir: string) =
             let options =
                 { state.State.options with
-                    CacheDir = cacheDir }
+                    AssetsDir = cacheDir }
 
             CommonBuilder { state.State with options = options }
 

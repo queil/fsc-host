@@ -36,7 +36,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
     member _.HelpMessages: string list = []
 
     member _.ClearResultsCache = fun () -> ()
-
+    /// This method gets called by fsch twice. First for GetProjectOptionsFromScript, then for the actual compile
     member _.ResolveDependencies
         (
             // DO NOT USE. It is only correct for GetProjectOptionsFromScript. Incorrect for Compile (points to the current working dir)
@@ -53,27 +53,41 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
         try
             let scriptExt = scriptExt[1..]
             let fschPaketDir = Path.Combine(Path.GetDirectoryName scriptName, ".paket-fsch")
-
-            if Directory.Exists fschPaketDir then
-                Directory.Delete(fschPaketDir, true)
-
             Dependencies.Init(fschPaketDir)
 
-            let depLines =
+            let depsFile = Dependencies.Locate(fschPaketDir)
+
+            let newLines =
                 packageManagerTextLines
-                |> Seq.map (fun (_, s) -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
+                |> Seq.map (fun (x, s) -> printfn "%s" x; s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
                 |> Seq.collect (id)
                 |> Seq.map (fun s -> s.Trim())
+                |> Seq.filter (fun line -> depsFile.GetDependenciesFile().Lines |> Array.contains(line) |> not)
 
-            let depsFile = Dependencies.Locate(fschPaketDir)
-            File.AppendAllLines(depsFile.DependenciesFile, depLines)
+            File.AppendAllLines(depsFile.DependenciesFile, newLines)
             depsFile.Install(false)
-            depsFile.GenerateLoadScripts [] [ targetFrameworkMoniker ] [ scriptExt ]
 
-            let loadScriptsPath =
-                Path.Combine(depsFile.RootPath, ".paket/load", targetFrameworkMoniker, $"main.group.{scriptExt}")
+            let data =
+                depsFile.GenerateLoadScriptData
+                    depsFile.DependenciesFile
+                    [ Domain.MainGroup ]
+                    [ targetFrameworkMoniker ]
+                    [ scriptExt ]
+                |> Seq.filter (fun d -> d.PartialPath = $"{targetFrameworkMoniker}/main.group.{scriptExt}")
+                |> Seq.head
 
-            ResolveDependenciesResult(true, [||], [||], [], [ loadScriptsPath ], [])
+            let loadScriptsPath = Path.Combine(depsFile.RootPath)
+            Directory.CreateDirectory(loadScriptsPath) |> ignore
+            data.Save(DirectoryInfo(loadScriptsPath))
+
+            ResolveDependenciesResult(
+                true,
+                [||],
+                [||],
+                [],
+                [ Path.Combine(loadScriptsPath, Constants.PaketFolderName, "load", data.PartialPath) ],
+                []
+            )
         with e ->
             printfn "exception while resolving dependencies: %s" (string e)
             ResolveDependenciesResult(false, [||], [||], [], [], [])

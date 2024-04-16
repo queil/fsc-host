@@ -100,7 +100,7 @@ type ScriptCache =
 type Options =
     { Compiler: CompilerOptions
       UseCache: bool
-      CacheDir: string option
+      CacheDir: string
       Logger: string -> unit
       LogListTypes: bool
       AutoLoadNugetReferences: bool }
@@ -108,7 +108,7 @@ type Options =
     static member Default =
         { Compiler = CompilerOptions.Default
           UseCache = false
-          CacheDir = None
+          CacheDir = Path.Combine(Path.GetTempPath(), Const.FschDir, "cache")
           Logger = ignore
           LogListTypes = false
           AutoLoadNugetReferences = true }
@@ -146,15 +146,18 @@ module CompilerHost =
     module private Internals =
         let checker = FSharpChecker.Create()
 
-        let ensureScriptFile (cacheDir: string option) (script: Script) =
+        let ensureScriptFile (cacheDir: string) (script: Script) =
             let getScriptFilePath =
                 function
-                | File path -> (path, Path.GetDirectoryName path)
+                | File path -> 
+                    let shallowHash = path |> File.ReadAllText |> Hash.sha256 |> Hash.short
+                    let scriptDir = Path.GetDirectoryName path
+                    (path, scriptDir, Path.Combine(cacheDir, shallowHash))
                 | Inline body ->
                     let shallowHash = body |> Hash.sha256 |> Hash.short
-                    let dir = Path.Combine(Path.GetTempPath(), Const.FschDir, shallowHash)
-                    let filePath = Path.Combine(dir, Const.InlineFsx)
-                    (filePath, dir)
+                    let scriptDir = Path.Combine(Path.GetTempPath(), Const.FschDir, shallowHash)
+                    let filePath = Path.Combine(scriptDir, Const.InlineFsx)
+                    (filePath, scriptDir, Path.Combine(cacheDir, shallowHash))
 
             let createInlineScriptFile (filePath: string) =
                 function
@@ -163,11 +166,11 @@ module CompilerHost =
                     File.WriteAllText(filePath, body)
                 | _ -> ()
 
-            let scriptFilePath, scriptDir = script |> getScriptFilePath
+            let scriptFilePath, scriptDir, cacheDir = script |> getScriptFilePath
 
             script |> createInlineScriptFile scriptFilePath
 
-            (scriptFilePath, cacheDir |> Option.defaultValue scriptDir)
+            (scriptFilePath, scriptDir, cacheDir)
 
         let compileScript (entryFilePath: string) (metadata: ScriptCache) (options: Options) : Async<CompileOutput> =
 
@@ -180,17 +183,12 @@ module CompilerHost =
                     path |> Assembly.LoadFrom |> ignore)
 
             async {
-                options.CacheDir |> Option.iter (Directory.CreateDirectory >> ignore)
+                options.CacheDir |> Directory.CreateDirectory |> ignore
 
                 let outputDllName =
                     if options.UseCache then
                         let hash = Hash.deepSourceHash metadata.SourceFiles
-
-                        Path.Combine(
-                            (options.CacheDir |> Option.defaultValue (Path.GetDirectoryName entryFilePath))
-                                .TrimEnd('\\', '/'),
-                            $"{hash}.dll"
-                        )
+                        Path.Combine(options.CacheDir.TrimEnd('\\', '/'), $"{hash}.dll")
                     else
                         $"{Path.GetTempFileName()}.dll"
 
@@ -249,10 +247,10 @@ module CompilerHost =
 
 
         async {
-            let (rootFilePath, scriptDir) = script |> ensureScriptFile options.CacheDir
-
+            let (rootFilePath, scriptDir, cacheDir) = script |> ensureScriptFile options.CacheDir
 
             Directory.CreateDirectory scriptDir |> ignore
+            Directory.CreateDirectory cacheDir |> ignore
 
             let cacheFilePath = Path.Combine(scriptDir, Const.FschDeps)
 
@@ -314,7 +312,7 @@ module CompilerHost =
                         rootFilePath
                         metadata
                         { options with
-                            CacheDir = Some scriptDir }
+                            CacheDir = cacheDir }
             | Error errors -> return raise (ScriptParseError(errors |> Seq.map string))
         }
 

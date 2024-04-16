@@ -12,6 +12,7 @@
     <IncludeSymbols>true</IncludeSymbols>
     <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>NU1608</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

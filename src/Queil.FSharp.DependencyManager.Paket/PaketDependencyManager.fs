@@ -28,6 +28,13 @@ type ResolveDependenciesResult
     member _.SourceFiles = sourceFiles
     member _.Roots = roots
 
+[<RequireQualifiedAccess>]
+module PaketPaths =
+  let internal scriptRootPaketDir (scriptFilePath:string) = Path.Combine(Path.GetTempPath(), scriptFilePath |> Path.GetDirectoryName , ".fsch")
+  let internal mainGroupFile (tfm:string) (ext:string) = $"%s{tfm}/main.group.%s{ext}"
+  let loadingScriptsDir scriptFilePath (tfm:string) (ext:string)  = 
+    Path.Combine(scriptFilePath |> scriptRootPaketDir, Constants.PaketFolderName, "load", mainGroupFile tfm ext)
+
 [<DependencyManager>]
 type PaketDependencyManager(outputDirectory: string option, useResultsCache: bool) =
     member _.Name = "paket"
@@ -45,49 +52,51 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
             scriptName: string,
             scriptExt: string,
             packageManagerTextLines: (string * string) seq,
-            targetFrameworkMoniker: string,
+            tfm: string,
             runtimeIdentifier: string,
             timeout: int
         ) : obj =
 
         try
             let scriptExt = scriptExt[1..]
-            let fschPaketDir = Path.Combine(Path.GetDirectoryName scriptName, ".paket-fsch")
+            let fschPaketDir = scriptName |> PaketPaths.scriptRootPaketDir
+            Directory.CreateDirectory fschPaketDir |> ignore
             Dependencies.Init(fschPaketDir)
 
             let depsFile = Dependencies.Locate(fschPaketDir)
+            let existingLines = depsFile.GetDependenciesFile().Lines
 
             let newLines =
                 packageManagerTextLines
-                |> Seq.map (fun (x, s) -> printfn "%s" x; s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
+                |> Seq.map (fun (_, s) -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
                 |> Seq.collect (id)
                 |> Seq.map (fun s -> s.Trim())
-                |> Seq.filter (fun line -> depsFile.GetDependenciesFile().Lines |> Array.contains(line) |> not)
+                |> Seq.filter (fun line ->  existingLines |> Seq.contains(line) |> not)
+                |> Seq.toList
 
             File.AppendAllLines(depsFile.DependenciesFile, newLines)
             depsFile.Install(false)
+
+            let expectedPartialPath = PaketPaths.mainGroupFile tfm scriptExt
 
             let data =
                 depsFile.GenerateLoadScriptData
                     depsFile.DependenciesFile
                     [ Domain.MainGroup ]
-                    [ targetFrameworkMoniker ]
+                    [ tfm ]
                     [ scriptExt ]
-                |> Seq.filter (fun d -> d.PartialPath = $"{targetFrameworkMoniker}/main.group.{scriptExt}")
+                |> Seq.filter (fun d -> d.PartialPath = expectedPartialPath)
                 |> Seq.head
 
-            let loadScriptsPath = Path.Combine(depsFile.RootPath)
-            Directory.CreateDirectory(loadScriptsPath) |> ignore
-            data.Save(DirectoryInfo(loadScriptsPath))
+            data.Save(DirectoryInfo(fschPaketDir))
 
             ResolveDependenciesResult(
                 true,
                 [||],
                 [||],
                 [],
-                [ Path.Combine(loadScriptsPath, Constants.PaketFolderName, "load", data.PartialPath) ],
+                [ PaketPaths.loadingScriptsDir scriptName tfm scriptExt ],
                 []
             )
         with e ->
-            printfn "exception while resolving dependencies: %s" (string e)
-            ResolveDependenciesResult(false, [||], [||], [], [], [])
+            failwithf "Paket: %s" (string e)

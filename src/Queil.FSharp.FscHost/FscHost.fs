@@ -197,7 +197,7 @@ module CompilerHost =
                     log $"Found and loading cached assembly: %s{path}"
 
                     if options.AutoLoadNugetReferences then
-                        log $"Loading cached NuGet resolutions file: %s{metadata.FilePath}"
+                        log $"Cached deps file: %s{metadata.FilePath}"
                         metadata.NuGets |> loadNuGetAssemblies
 
                     return
@@ -252,7 +252,7 @@ module CompilerHost =
             Directory.CreateDirectory scriptDir |> ignore
             Directory.CreateDirectory cacheDir |> ignore
 
-            let cacheFilePath = Path.Combine(scriptDir, Const.FschDeps)
+            let cacheDepsFilePath = Path.Combine(cacheDir, Const.FschDeps)
 
             let! metadataResult =
                 async {
@@ -267,7 +267,7 @@ module CompilerHost =
                             | [] ->
                                 let metadata =
                                     { ScriptCache.Default with
-                                        FilePath = cacheFilePath
+                                        FilePath = cacheDepsFilePath
                                         SourceFiles = projOptions.SourceFiles |> Seq.toList }
 
                                 if options.Compiler.Standalone then
@@ -291,8 +291,8 @@ module CompilerHost =
                             | errors -> return Error(errors)
                         }
 
-                    if File.Exists cacheFilePath then
-                        let c = ScriptCache.Load cacheFilePath
+                    if File.Exists cacheDepsFilePath then
+                        let c = ScriptCache.Load cacheDepsFilePath
                         let allFilesExist = c.SourceFiles |> Seq.map File.Exists |> Seq.reduce (&&)
 
                         if not <| allFilesExist then

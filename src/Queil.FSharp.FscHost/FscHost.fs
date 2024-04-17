@@ -212,10 +212,14 @@ module CompilerHost =
                     if options.AutoLoadNugetReferences then
                         metadata.NuGets |> loadNuGetAssemblies
 
+                    let absoluteRootFilePath =
+                        if Path.IsPathRooted rootFilePath then rootFilePath
+                        else Path.GetFullPath rootFilePath
+
                     let compilerArgs =
 
                         let paketFilesDir = PaketPaths.paketFilesDir
-                        [ yield! options.Compiler.Args rootFilePath refs options.Compiler
+                        [ yield! options.Compiler.Args absoluteRootFilePath refs options.Compiler
                           $"--out:{path}"
                           if Directory.Exists(Path.Combine(FileInfo(rootFilePath).DirectoryName, paketFilesDir)) then
                             $"--lib:{paketFilesDir}"
@@ -234,7 +238,7 @@ module CompilerHost =
 
                     let getAssembly () =
                         async {
-                            Directory.SetCurrentDirectory(FileInfo(rootFilePath).DirectoryName)
+                            Directory.SetCurrentDirectory(Path.GetDirectoryName absoluteRootFilePath)
                             let! errors, _ = checker.Compile(compilerArgs |> List.toArray, "None")
                             return getAssemblyOrThrow errors (fun () -> path |> Path.GetFullPath |> Assembly.LoadFile)
                         }

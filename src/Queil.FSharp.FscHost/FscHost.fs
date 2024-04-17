@@ -269,16 +269,10 @@ module CompilerHost =
                         async {
 
                             let source = File.ReadAllText rootFilePath |> SourceText.ofString
+                            Directory.CreateDirectory (Path.Combine(FileInfo(rootFilePath).DirectoryName, PaketPaths.paketFilesDir)) |> ignore
                             let paketFilesDir = PaketPaths.paketFilesDir
-                            let otherFlags = [|
-                                if Directory.Exists(Path.Combine(scriptDir, paketFilesDir)) then
-                                    $"--lib:{paketFilesDir}"
-                                else ()
-                            |]
-                            let! projOptions, errors = checker.GetProjectOptionsFromScript(rootFilePath, source,otherFlags=otherFlags, previewEnabled=true)
-
-                            
-
+                            let otherFlags = [|$"--lib:{paketFilesDir}"|]
+                            let! projOptions, errors = checker.GetProjectOptionsFromScript(rootFilePath, source, otherFlags=otherFlags, previewEnabled=true)
                             match errors with
                             | [] ->
                                 let metadata =

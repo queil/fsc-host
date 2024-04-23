@@ -8,7 +8,6 @@ open System.IO
 open System.Reflection
 open System.Text
 open System.Security.Cryptography
-open Queil.FSharp.DependencyManager.Paket
 
 [<RequireQualifiedAccess>]
 module private Const =
@@ -118,6 +117,26 @@ type Options =
 module CompilerHost =
     open Errors
 
+    do
+        let targetDir =
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".fsharp",
+                "fsx-extensions",
+                Const.FschDir
+            )
+
+        Directory.CreateDirectory(targetDir) |> ignore
+        let sourceDir = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location)
+
+        for (sourcePath, targetPath) in
+            Directory.EnumerateFiles(sourceDir, "*.dll")
+            |> Seq.map FileInfo
+            |> Seq.map (fun f -> Path.Combine(sourceDir, f.Name), Path.Combine(targetDir, f.Name)) do
+            File.Copy(sourcePath, targetPath, true)
+
+        ()
+
     [<RequireQualifiedAccess>]
     module private Hash =
         let sha256 (s: string) =
@@ -150,7 +169,7 @@ module CompilerHost =
         let ensureScriptFile (cacheDir: string) (script: Script) =
             let getScriptFilePath =
                 function
-                | File path -> 
+                | File path ->
                     let shallowHash = path |> File.ReadAllText |> Hash.sha256 |> Hash.short
                     let scriptDir = Path.GetDirectoryName path
                     (path, scriptDir, Path.Combine(cacheDir, shallowHash))
@@ -213,18 +232,14 @@ module CompilerHost =
                         metadata.NuGets |> loadNuGetAssemblies
 
                     let absoluteRootFilePath =
-                        if Path.IsPathRooted rootFilePath then rootFilePath
-                        else Path.GetFullPath rootFilePath
+                        if Path.IsPathRooted rootFilePath then
+                            rootFilePath
+                        else
+                            Path.GetFullPath rootFilePath
 
                     let compilerArgs =
-
-                        let paketFilesDir = PaketPaths.paketFilesDir
                         [ yield! options.Compiler.Args absoluteRootFilePath refs options.Compiler
-                          $"--out:{path}"
-                          if Directory.Exists(Path.Combine(FileInfo(rootFilePath).DirectoryName, paketFilesDir)) then
-                            $"--lib:{paketFilesDir}"
-                          else ()
-                        ]
+                          $"--out:{path}" ]
 
                     log (sprintf "Compiling with args: %s" (compilerArgs |> String.concat " "))
 
@@ -238,7 +253,6 @@ module CompilerHost =
 
                     let getAssembly () =
                         async {
-                            Directory.SetCurrentDirectory(Path.GetDirectoryName absoluteRootFilePath)
                             let! errors, _ = checker.Compile(compilerArgs |> List.toArray, "None")
                             return getAssemblyOrThrow errors (fun () -> path |> Path.GetFullPath |> Assembly.LoadFile)
                         }
@@ -259,8 +273,10 @@ module CompilerHost =
 
 
         async {
-            let (rootFilePath, scriptDir, cacheDir) = script |> ensureScriptFile options.CacheDir
+            let (rootFilePath, scriptDir, cacheDir) =
+                script |> ensureScriptFile options.CacheDir
 
+            Directory.SetCurrentDirectory(scriptDir)
             Directory.CreateDirectory scriptDir |> ignore
             Directory.CreateDirectory cacheDir |> ignore
 
@@ -271,12 +287,11 @@ module CompilerHost =
 
                     let buildMetadata () =
                         async {
-
                             let source = File.ReadAllText rootFilePath |> SourceText.ofString
-                            Directory.CreateDirectory (Path.Combine(FileInfo(rootFilePath).DirectoryName, PaketPaths.paketFilesDir)) |> ignore
-                            let paketFilesDir = PaketPaths.paketFilesDir
-                            let otherFlags = [|$"--lib:{paketFilesDir}"|]
-                            let! projOptions, errors = checker.GetProjectOptionsFromScript(rootFilePath, source, otherFlags=otherFlags, previewEnabled=true)
+
+                            let! projOptions, errors =
+                                checker.GetProjectOptionsFromScript(rootFilePath, source, previewEnabled = true)
+
                             match errors with
                             | [] ->
                                 let metadata =
@@ -321,12 +336,7 @@ module CompilerHost =
             | Ok metadata ->
                 metadata.Save()
 
-                return!
-                    compileScript
-                        rootFilePath
-                        metadata
-                        { options with
-                            CacheDir = cacheDir }
+                return! compileScript rootFilePath metadata { options with CacheDir = cacheDir }
             | Error errors -> return raise (ScriptParseError(errors |> Seq.map string))
         }
 

@@ -30,11 +30,15 @@ type ResolveDependenciesResult
 
 [<RequireQualifiedAccess>]
 module PaketPaths =
-  let internal scriptRootPaketDir (scriptFilePath:string) = Path.Combine(Path.GetTempPath(), scriptFilePath |> Path.GetDirectoryName , ".fsch")
-  let internal mainGroupFile (tfm:string) (ext:string) = $"%s{tfm}/main.group.%s{ext}"
-  let internal loadingScriptsDir scriptFilePath (tfm:string) (ext:string)  = 
-    Path.Combine(scriptFilePath |> scriptRootPaketDir, Constants.PaketFolderName, "load", mainGroupFile tfm ext)
-  let paketFilesDir = Path.Combine(".fsch", Constants.PaketFilesFolderName)
+    let internal scriptRootPaketDir (scriptFilePath: string) =
+        Path.Combine(scriptFilePath |> Path.GetDirectoryName, ".fsch")
+
+    let internal mainGroupFile (tfm: string) (ext: string) = $"%s{tfm}/main.group.%s{ext}"
+
+    let internal loadingScriptsDir scriptFilePath (tfm: string) (ext: string) =
+        Path.Combine(scriptFilePath |> scriptRootPaketDir, Constants.PaketFolderName, "load", mainGroupFile tfm ext)
+
+    let paketFilesDir = Path.Combine(".fsch", Constants.PaketFilesFolderName)
 
 [<DependencyManager>]
 type PaketDependencyManager(outputDirectory: string option, useResultsCache: bool) =
@@ -44,6 +48,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
     member _.HelpMessages: string list = []
 
     member _.ClearResultsCache = fun () -> ()
+
     /// This method gets called by fsch twice. First for GetProjectOptionsFromScript, then for the actual compile
     member _.ResolveDependencies
         (
@@ -60,56 +65,75 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
         try
             let scriptExt = scriptExt[1..]
+
             let fschPaketDir = scriptName |> PaketPaths.scriptRootPaketDir
+            let logPath = Path.Combine(fschPaketDir, "paket.log")
+            let log (line) = File.AppendAllLines(logPath, [ line ])
             Directory.CreateDirectory fschPaketDir |> ignore
-            Dependencies.Init(fschPaketDir)
 
+            log fschPaketDir
+
+            // ensure there is always an empty deps file
+            match Dependencies.TryLocate(fschPaketDir) with
+            | None ->
+                log "none located"
+                ()
+            | Some df ->
+                log $"located: {df.DependenciesFile}. Deleting"
+                File.Delete(df.DependenciesFile)
+                log "Deleted"
+
+            try
+                Dependencies.Init(fschPaketDir)
+            with ex ->
+                log $"{ex.Message}"
+
+            log "init OK"
             let depsFile = Dependencies.Locate(fschPaketDir)
-            let existingLines = depsFile.GetDependenciesFile().Lines
 
-            let preProcess (line: string) = 
-                let parsed = 
-                  DependenciesFileParser.parseDependencyLine line
-                  |> Seq.toList
+            File.AppendAllText(logPath, depsFile.DependenciesFile)
+
+            let preProcess (line: string) =
+                let parsed = DependenciesFileParser.parseDependencyLine line |> Seq.toList
+
                 let processed =
                     match parsed with
-                    | "github"::path::tail when not <| path.Contains(":") ->
-                    "github"::$"{path}:main"::tail
+                    | "github" :: path :: tail when not <| path.Contains(":") -> "github" :: $"{path}:main" :: tail
                     | s -> s
+
                 processed |> String.concat " "
 
-            let newLines =
+            let depsLines =
                 packageManagerTextLines
-                |> Seq.map (fun (_,s) -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
+                |> Seq.map (fun (_, s) -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
                 |> Seq.collect (id)
                 |> Seq.map (fun s -> s.Trim())
                 |> Seq.map (preProcess)
-                |> Seq.filter (fun line ->  existingLines |> Seq.contains(line) |> not)
                 |> Seq.toList
 
-            File.AppendAllLines(depsFile.DependenciesFile, newLines)
-            depsFile.Install(false)
+            File.AppendAllLines(depsFile.DependenciesFile, depsLines)
+
+            try
+                depsFile.Install(false)
+            with ex ->
+                log $"{ex.ToString()}"
 
             let expectedPartialPath = PaketPaths.mainGroupFile tfm scriptExt
 
             let data =
-                depsFile.GenerateLoadScriptData
-                    depsFile.DependenciesFile
-                    [ Domain.MainGroup ]
-                    [ tfm ]
-                    [ scriptExt ]
+                depsFile.GenerateLoadScriptData depsFile.DependenciesFile [ Domain.MainGroup ] [ tfm ] [ scriptExt ]
                 |> Seq.filter (fun d -> d.PartialPath = expectedPartialPath)
                 |> Seq.head
 
             data.Save(DirectoryInfo(fschPaketDir))
 
-            ResolveDependenciesResult(
-                true,
-                [||],
-                [||],
-                [],
-                [ PaketPaths.loadingScriptsDir scriptName tfm scriptExt ],
-                []
+            let loadingScriptsFilePath = PaketPaths.loadingScriptsDir scriptName tfm scriptExt
+
+            File.AppendAllText(
+                loadingScriptsFilePath,
+                $"\n#I \"{Path.Combine(fschPaketDir, Constants.PaketFilesFolderName)}\""
             )
+
+            ResolveDependenciesResult(true, [||], [||], [], [ loadingScriptsFilePath ], [])
         with e ->
             failwithf "Paket: %s" (string e)

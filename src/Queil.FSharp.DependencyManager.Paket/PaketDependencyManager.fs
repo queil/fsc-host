@@ -30,13 +30,13 @@ type ResolveDependenciesResult
 
 [<RequireQualifiedAccess>]
 module PaketPaths =
-    let internal scriptRootPaketDir (scriptFilePath: string) =
-        Path.Combine(scriptFilePath |> Path.GetDirectoryName, ".fsch")
+    let internal scriptRootPaketDir (scriptDir: string) =
+        Path.Combine(scriptDir, ".fsch")
 
     let internal mainGroupFile (tfm: string) (ext: string) = $"%s{tfm}/main.group.%s{ext}"
 
-    let internal loadingScriptsDir scriptFilePath (tfm: string) (ext: string) =
-        Path.Combine(scriptFilePath |> scriptRootPaketDir, Constants.PaketFolderName, "load", mainGroupFile tfm ext)
+    let internal loadingScriptsDir (scriptDir:string) (tfm: string) (ext: string) =
+        Path.Combine(scriptDir |> scriptRootPaketDir, Constants.PaketFolderName, "load", mainGroupFile tfm ext)
 
     let paketFilesDir = Path.Combine(".fsch", Constants.PaketFilesFolderName)
 
@@ -52,8 +52,6 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
     /// This method gets called by fsch twice. First for GetProjectOptionsFromScript, then for the actual compile
     member _.ResolveDependencies
         (
-            // DO NOT USE. It is only correct for GetProjectOptionsFromScript. Incorrect for Compile (points to the current working dir)
-            // Use the directory from scriptName
             scriptDir: string,
             scriptName: string,
             scriptExt: string,
@@ -66,32 +64,33 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
         try
             let scriptExt = scriptExt[1..]
 
-            let fschPaketDir = scriptName |> PaketPaths.scriptRootPaketDir
-            let logPath = Path.Combine(fschPaketDir, "paket.log")
+            let fschPaketDir = scriptDir |> PaketPaths.scriptRootPaketDir
+            let logPath = "/tmp/paket.log"
             let log (line) = File.AppendAllLines(logPath, [ line ])
             Directory.CreateDirectory fschPaketDir |> ignore
 
-            log fschPaketDir
+            log $"------- SCRIPT: {scriptName} {scriptDir} ----------"
 
-            // ensure there is always an empty deps file
-            match Dependencies.TryLocate(fschPaketDir) with
-            | None ->
-                log "none located"
-                ()
-            | Some df ->
-                log $"located: {df.DependenciesFile}. Deleting"
-                File.Delete(df.DependenciesFile)
-                log "Deleted"
+            let deps =
+                match Dependencies.TryLocate(fschPaketDir) with
+                | Some df -> df
+                | None -> 
+                    try
+                        let sources = [PackageSources.DefaultNuGetV3Source]
+                        let additionalLines = [
+                            "storage: none"
+                            $"framework: {tfm}"
+                            ""
+                        ]
+                        Dependencies.Init(fschPaketDir, sources, additionalLines, fun () -> ())
+                        log "init OK"
+                        Dependencies.Locate(fschPaketDir)
+                    with ex ->
+                        log $"{ex.Message}"
+                        reraise ()
 
-            try
-                Dependencies.Init(fschPaketDir)
-            with ex ->
-                log $"{ex.Message}"
-
-            log "init OK"
-            let depsFile = Dependencies.Locate(fschPaketDir)
-
-            File.AppendAllText(logPath, depsFile.DependenciesFile)
+            
+            log $"DEPS: {deps.DependenciesFile}"
 
             let preProcess (line: string) =
                 let parsed = DependenciesFileParser.parseDependencyLine line |> Seq.toList
@@ -103,37 +102,45 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
                 processed |> String.concat " "
 
-            let depsLines =
+            let df = deps.GetDependenciesFile()
+            let newLines =
                 packageManagerTextLines
                 |> Seq.map (fun (_, s) -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
                 |> Seq.collect (id)
                 |> Seq.map (fun s -> s.Trim())
                 |> Seq.map (preProcess)
+                |> Seq.distinct
+                |> Seq.filter (fun s -> df.Lines |> Seq.contains(s) |> not )
                 |> Seq.toList
 
-            File.AppendAllLines(depsFile.DependenciesFile, depsLines)
+            File.AppendAllLines(deps.DependenciesFile, newLines)
+            
+            log (File.ReadAllText(deps.DependenciesFile))
 
             try
-                depsFile.Install(false)
+                deps.Install(false)
             with ex ->
                 log $"{ex.ToString()}"
 
             let expectedPartialPath = PaketPaths.mainGroupFile tfm scriptExt
 
             let data =
-                depsFile.GenerateLoadScriptData depsFile.DependenciesFile [ Domain.MainGroup ] [ tfm ] [ scriptExt ]
+                deps.GenerateLoadScriptData deps.DependenciesFile [ Domain.MainGroup ] [ tfm ] [ scriptExt ]
                 |> Seq.filter (fun d -> d.PartialPath = expectedPartialPath)
                 |> Seq.head
 
             data.Save(DirectoryInfo(fschPaketDir))
 
-            let loadingScriptsFilePath = PaketPaths.loadingScriptsDir scriptName tfm scriptExt
+            let loadingScriptsFilePath = PaketPaths.loadingScriptsDir scriptDir tfm scriptExt
 
-            File.AppendAllText(
-                loadingScriptsFilePath,
-                $"\n#I \"{Path.Combine(fschPaketDir, Constants.PaketFilesFolderName)}\""
-            )
+            log $"LOADING SCRIPTS: {loadingScriptsFilePath}"
 
-            ResolveDependenciesResult(true, [||], [||], [], [ loadingScriptsFilePath ], [])
+            log (File.ReadAllText(loadingScriptsFilePath))
+
+            let roots = [
+                Path.Combine(fschPaketDir, Constants.PaketFilesFolderName)
+            ]
+
+            ResolveDependenciesResult(true, [||], [||], [], [ loadingScriptsFilePath ], roots)
         with e ->
             failwithf "Paket: %s" (string e)

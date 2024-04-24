@@ -30,12 +30,11 @@ type ResolveDependenciesResult
 
 [<RequireQualifiedAccess>]
 module PaketPaths =
-    let internal scriptRootPaketDir (scriptDir: string) =
-        Path.Combine(scriptDir, ".fsch")
+    let internal scriptRootPaketDir (scriptDir: string) = Path.Combine(scriptDir, ".fsch")
 
     let internal mainGroupFile (tfm: string) (ext: string) = $"%s{tfm}/main.group.%s{ext}"
 
-    let internal loadingScriptsDir (scriptDir:string) (tfm: string) (ext: string) =
+    let internal loadingScriptsDir (scriptDir: string) (tfm: string) (ext: string) =
         Path.Combine(scriptDir |> scriptRootPaketDir, Constants.PaketFolderName, "load", mainGroupFile tfm ext)
 
     let paketFilesDir = Path.Combine(".fsch", Constants.PaketFilesFolderName)
@@ -66,7 +65,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
             let fschPaketDir = scriptDir |> PaketPaths.scriptRootPaketDir
             let logPath = "/tmp/paket.log"
-            let log (line) = File.AppendAllLines(logPath, [ line ])
+            let log (line) = () //File.AppendAllLines(logPath, [ line ])
             Directory.CreateDirectory fschPaketDir |> ignore
 
             log $"------- SCRIPT: {scriptName} {scriptDir} ----------"
@@ -74,22 +73,18 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
             let deps =
                 match Dependencies.TryLocate(fschPaketDir) with
                 | Some df -> df
-                | None -> 
+                | None ->
                     try
-                        let sources = [PackageSources.DefaultNuGetV3Source]
-                        let additionalLines = [
-                            "storage: none"
-                            $"framework: {tfm}"
-                            ""
-                        ]
-                        Dependencies.Init(fschPaketDir, sources, additionalLines, fun () -> ())
+                        let sources = [ PackageSources.DefaultNuGetV3Source ]
+                        let additionalLines = [ "storage: none"; $"framework: {tfm}"; "" ]
+                        Dependencies.Init(fschPaketDir, sources, additionalLines, (fun () -> ()))
                         log "init OK"
                         Dependencies.Locate(fschPaketDir)
                     with ex ->
                         log $"{ex.Message}"
                         reraise ()
 
-            
+
             log $"DEPS: {deps.DependenciesFile}"
 
             let preProcess (line: string) =
@@ -103,6 +98,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                 processed |> String.concat " "
 
             let df = deps.GetDependenciesFile()
+
             let newLines =
                 packageManagerTextLines
                 |> Seq.map (fun (_, s) -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
@@ -110,11 +106,11 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                 |> Seq.map (fun s -> s.Trim())
                 |> Seq.map (preProcess)
                 |> Seq.distinct
-                |> Seq.filter (fun s -> df.Lines |> Seq.contains(s) |> not )
+                |> Seq.filter (fun s -> df.Lines |> Seq.contains (s) |> not)
                 |> Seq.toList
 
             File.AppendAllLines(deps.DependenciesFile, newLines)
-            
+
             log (File.ReadAllText(deps.DependenciesFile))
 
             try
@@ -137,9 +133,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
             log (File.ReadAllText(loadingScriptsFilePath))
 
-            let roots = [
-                Path.Combine(fschPaketDir, Constants.PaketFilesFolderName)
-            ]
+            let roots = [ Path.Combine(fschPaketDir, Constants.PaketFilesFolderName) ]
 
             ResolveDependenciesResult(true, [||], [||], [], [ loadingScriptsFilePath ], roots)
         with e ->

@@ -117,26 +117,6 @@ type Options =
 module CompilerHost =
     open Errors
 
-    do
-        let targetDir =
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".fsharp",
-                "fsx-extensions",
-                Const.FschDir
-            )
-
-        Directory.CreateDirectory(targetDir) |> ignore
-        let sourceDir = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location)
-
-        for (sourcePath, targetPath) in
-            Directory.EnumerateFiles(sourceDir, "*.dll")
-            |> Seq.map FileInfo
-            |> Seq.map (fun f -> Path.Combine(sourceDir, f.Name), Path.Combine(targetDir, f.Name)) do
-            File.Copy(sourcePath, targetPath, true)
-
-        ()
-
     [<RequireQualifiedAccess>]
     module private Hash =
         let sha256 (s: string) =

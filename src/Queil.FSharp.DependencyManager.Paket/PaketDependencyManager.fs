@@ -30,11 +30,14 @@ type ResolveDependenciesResult
 
 [<RequireQualifiedAccess>]
 module PaketPaths =
-  let internal scriptRootPaketDir (scriptFilePath:string) = Path.Combine(Path.GetTempPath(), scriptFilePath |> Path.GetDirectoryName , ".fsch")
-  let internal mainGroupFile (tfm:string) (ext:string) = $"%s{tfm}/main.group.%s{ext}"
-  let internal loadingScriptsDir scriptFilePath (tfm:string) (ext:string)  = 
-    Path.Combine(scriptFilePath |> scriptRootPaketDir, Constants.PaketFolderName, "load", mainGroupFile tfm ext)
-  let paketFilesDir = Path.Combine(".fsch", Constants.PaketFilesFolderName)
+    let internal scriptRootPaketDir (scriptDir: string) = Path.Combine(scriptDir, ".fsch")
+
+    let internal mainGroupFile (tfm: string) (ext: string) = $"%s{tfm}/main.group.%s{ext}"
+
+    let internal loadingScriptsDir (scriptDir: string) (tfm: string) (ext: string) =
+        Path.Combine(scriptDir |> scriptRootPaketDir, Constants.PaketFolderName, "load", mainGroupFile tfm ext)
+
+    let paketFilesDir = Path.Combine(".fsch", Constants.PaketFilesFolderName)
 
 [<DependencyManager>]
 type PaketDependencyManager(outputDirectory: string option, useResultsCache: bool) =
@@ -44,11 +47,10 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
     member _.HelpMessages: string list = []
 
     member _.ClearResultsCache = fun () -> ()
+
     /// This method gets called by fsch twice. First for GetProjectOptionsFromScript, then for the actual compile
     member _.ResolveDependencies
         (
-            // DO NOT USE. It is only correct for GetProjectOptionsFromScript. Incorrect for Compile (points to the current working dir)
-            // Use the directory from scriptName
             scriptDir: string,
             scriptName: string,
             scriptExt: string,
@@ -60,56 +62,79 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
         try
             let scriptExt = scriptExt[1..]
-            let fschPaketDir = scriptName |> PaketPaths.scriptRootPaketDir
+
+            let fschPaketDir = scriptDir |> PaketPaths.scriptRootPaketDir
+            let logPath = "/tmp/paket.log"
+            let log (line) = () //File.AppendAllLines(logPath, [ line ])
             Directory.CreateDirectory fschPaketDir |> ignore
-            Dependencies.Init(fschPaketDir)
 
-            let depsFile = Dependencies.Locate(fschPaketDir)
-            let existingLines = depsFile.GetDependenciesFile().Lines
+            log $"------- SCRIPT: {scriptName} {scriptDir} ----------"
 
-            let preProcess (line: string) = 
-                let parsed = 
-                  DependenciesFileParser.parseDependencyLine line
-                  |> Seq.toList
+            let deps =
+                match Dependencies.TryLocate(fschPaketDir) with
+                | Some df -> df
+                | None ->
+                    try
+                        let sources = [ PackageSources.DefaultNuGetV3Source ]
+                        let additionalLines = [ "storage: none"; $"framework: {tfm}"; "" ]
+                        Dependencies.Init(fschPaketDir, sources, additionalLines, (fun () -> ()))
+                        log "init OK"
+                        Dependencies.Locate(fschPaketDir)
+                    with ex ->
+                        log $"{ex.Message}"
+                        reraise ()
+
+
+            log $"DEPS: {deps.DependenciesFile}"
+
+            let preProcess (line: string) =
+                let parsed = DependenciesFileParser.parseDependencyLine line |> Seq.toList
+
                 let processed =
                     match parsed with
-                    | "github"::path::tail when not <| path.Contains(":") ->
-                    "github"::$"{path}:main"::tail
+                    | "github" :: path :: tail when not <| path.Contains(":") -> "github" :: $"{path}:main" :: tail
                     | s -> s
+
                 processed |> String.concat " "
+
+            let df = deps.GetDependenciesFile()
 
             let newLines =
                 packageManagerTextLines
-                |> Seq.map (fun (_,s) -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
+                |> Seq.map (fun (_, s) -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
                 |> Seq.collect (id)
                 |> Seq.map (fun s -> s.Trim())
                 |> Seq.map (preProcess)
-                |> Seq.filter (fun line ->  existingLines |> Seq.contains(line) |> not)
+                |> Seq.distinct
+                |> Seq.filter (fun s -> df.Lines |> Seq.contains (s) |> not)
                 |> Seq.toList
 
-            File.AppendAllLines(depsFile.DependenciesFile, newLines)
-            depsFile.Install(false)
+            File.AppendAllLines(deps.DependenciesFile, newLines)
+
+            log (File.ReadAllText(deps.DependenciesFile))
+
+            try
+                deps.Install(false)
+            with ex ->
+                log $"{ex.ToString()}"
 
             let expectedPartialPath = PaketPaths.mainGroupFile tfm scriptExt
 
             let data =
-                depsFile.GenerateLoadScriptData
-                    depsFile.DependenciesFile
-                    [ Domain.MainGroup ]
-                    [ tfm ]
-                    [ scriptExt ]
+                deps.GenerateLoadScriptData deps.DependenciesFile [ Domain.MainGroup ] [ tfm ] [ scriptExt ]
                 |> Seq.filter (fun d -> d.PartialPath = expectedPartialPath)
                 |> Seq.head
 
             data.Save(DirectoryInfo(fschPaketDir))
 
-            ResolveDependenciesResult(
-                true,
-                [||],
-                [||],
-                [],
-                [ PaketPaths.loadingScriptsDir scriptName tfm scriptExt ],
-                []
-            )
+            let loadingScriptsFilePath = PaketPaths.loadingScriptsDir scriptDir tfm scriptExt
+
+            log $"LOADING SCRIPTS: {loadingScriptsFilePath}"
+
+            log (File.ReadAllText(loadingScriptsFilePath))
+
+            let roots = [ Path.Combine(fschPaketDir, Constants.PaketFilesFolderName) ]
+
+            ResolveDependenciesResult(true, [||], [||], [], [ loadingScriptsFilePath ], roots)
         with e ->
             failwithf "Paket: %s" (string e)

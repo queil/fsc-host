@@ -1,5 +1,0 @@
-image = "ghcr.io/queil/image:dotnet-8"
-shell = "zellij"
-caches = [
-  "~/.nuget"
-]

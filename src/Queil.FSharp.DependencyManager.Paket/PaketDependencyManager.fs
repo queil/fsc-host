@@ -65,7 +65,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
             let fschPaketDir = scriptDir |> PaketPaths.scriptRootPaketDir
             let logPath = "/tmp/paket.log"
-            let log (line) = () //File.AppendAllLines(logPath, [ line ])
+            let log line = () //File.AppendAllLines(logPath, [ line ])
             Directory.CreateDirectory fschPaketDir |> ignore
 
             log $"------- SCRIPT: {scriptName} {scriptDir} ----------"
@@ -97,16 +97,22 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
                 processed |> String.concat " "
 
-            let df = deps.GetDependenciesFile()
+            let df =
+                try
+                    deps.GetDependenciesFile()
+                with
+                | ex ->
+                    File.Delete deps.DependenciesFile
+                    reraise ()
 
             let newLines =
                 packageManagerTextLines
                 |> Seq.map (fun (_, s) -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
-                |> Seq.collect (id)
-                |> Seq.map (fun s -> s.Trim())
-                |> Seq.map (preProcess)
+                |> Seq.collect id
+                |> Seq.map _.Trim()
+                |> Seq.map preProcess
                 |> Seq.distinct
-                |> Seq.filter (fun s -> df.Lines |> Seq.contains (s) |> not)
+                |> Seq.filter (fun s -> df.Lines |> Seq.contains s |> not)
                 |> Seq.toList
 
             File.AppendAllLines(deps.DependenciesFile, newLines)
@@ -137,4 +143,4 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
             ResolveDependenciesResult(true, [||], [||], [], [ loadingScriptsFilePath ], roots)
         with e ->
-            failwithf "Paket: %s" (string e)
+            failwithf $"Paket: %s{string e}"

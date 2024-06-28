@@ -89,7 +89,7 @@ type ScriptCache =
                     { x with
                         SourceFiles = v :: x.SourceFiles }
                 | _ -> failwith $"Could not parse line: %s{s} in file: %s{path}")
-            (ScriptCache.Default)
+            ScriptCache.Default
         |> fun x -> { x with FilePath = path }
 
     member cache.Save() =
@@ -250,7 +250,6 @@ module CompilerHost =
     open Internals
 
     let getAssembly (options: Options) (script: Script) : Async<CompileOutput> =
-
 
         async {
             let (rootFilePath, scriptDir, cacheDir) =

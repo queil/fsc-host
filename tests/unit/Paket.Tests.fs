@@ -28,10 +28,16 @@ let paketTests =
                     let x () = 10 |> Yzl.render |> printfn "%s"
                 """
 
+              let dir = "/tmp/.fsch/fixed-location"
+
+              let scriptFilePath = $"{dir}/paket.nuget.cache.fsx"
+              Directory.CreateDirectory(dir) |> ignore
+              File.WriteAllText(scriptFilePath, script)
+
               let resultFunc =
                   Common.invoke
                   <| fun () ->
-                      Inline script
+                      Queil.FSharp.FscHost.File scriptFilePath
                       |> CompilerHost.getMember
                           { options with UseCache = true }
                           (Member<unit -> unit>.Path("Script.X.x"))

@@ -235,7 +235,7 @@ module CompilerHost =
 
                     let getAssembly () =
                         async {
-                            let! errors, _ = checker.Compile(compilerArgs |> List.toArray, "None")
+                            let! errors, _ = checker.Compile(compilerArgs |> List.toArray, "fsch-getAssembly")
 
                             return
                                 getAssemblyOrThrow errors (fun () ->
@@ -261,9 +261,11 @@ module CompilerHost =
             let rootFilePath, scriptDir, outputDir =
                 script |> ensureScriptFile options.OutputDir
 
-            Directory.CreateDirectory scriptDir |> ignore
+            match script with
+            | Inline _ -> Directory.CreateDirectory scriptDir |> ignore
+            | _ -> ()
+
             Directory.CreateDirectory outputDir |> ignore
-            Directory.SetCurrentDirectory(outputDir)
 
             let cacheDepsFilePath = Path.Combine(outputDir, Const.FschDeps)
 

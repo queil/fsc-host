@@ -13,7 +13,9 @@ let cacheTests =
               File.WriteAllLines(filePath, lines |> Seq.toArray)
 
           let prepareScripts () =
-              let tmpPath = Path.Combine(Path.GetTempPath(), "fsc-host", Path.GetRandomFileName())
+              let tmpPath =
+                  Path.Combine(Path.GetTempPath(), ".fsch-override", Path.GetRandomFileName())
+
               Directory.CreateDirectory tmpPath |> ignore
               let scriptDir = tmpPath
               let rootScriptName = "script.fsx"
@@ -92,7 +94,9 @@ let cacheTests =
           }
 
           testAsync "Override output dir path" {
-              let tmpPath = Path.Combine(Path.GetTempPath(), ".fsch-override", Path.GetRandomFileName())
+              let tmpPath =
+                  Path.Combine(Path.GetTempPath(), ".fsch-override", Path.GetRandomFileName())
+
               Directory.CreateDirectory tmpPath |> ignore
 
               let findDlls () =
@@ -116,7 +120,9 @@ let cacheTests =
           }
 
           testAsync "Shouldn't cache if caching not enabled" {
-              let tmpPath = Path.Combine(Path.GetTempPath(), ".fsch-override", Path.GetRandomFileName())
+              let tmpPath =
+                  Path.Combine(Path.GetTempPath(), ".fsch-override", Path.GetRandomFileName())
+
               Directory.CreateDirectory tmpPath |> ignore
 
               let findDlls () =

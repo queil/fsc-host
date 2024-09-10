@@ -60,16 +60,15 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
             timeout: int
         ) : obj =
 
-
         let logPath = "/tmp/paket.log"
         let log (line) = () //File.AppendAllLines(logPath, [ line ])
 
         try
             let scriptExt = scriptExt[1..]
-
-            let fschPaketDir = scriptDir |> PaketPaths.scriptRootPaketDir
+            let fschPaketDir = Directory.GetCurrentDirectory() |> PaketPaths.scriptRootPaketDir
             Directory.CreateDirectory fschPaketDir |> ignore
 
+            log $"WORK DIR: {fschPaketDir}"
             log $"------- SCRIPT: {scriptName} {scriptDir} ----------"
 
             match Dependencies.TryLocate(fschPaketDir) with
@@ -101,11 +100,11 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                 let newLines =
                     packageManagerTextLines
                     |> Seq.map (fun (_, s) -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
-                    |> Seq.collect (id)
-                    |> Seq.map (fun s -> s.Trim())
-                    |> Seq.map (preProcess)
+                    |> Seq.collect id
+                    |> Seq.map _.Trim()
+                    |> Seq.map preProcess
                     |> Seq.distinct
-                    |> Seq.filter (fun s -> df.Lines |> Seq.contains (s) |> not)
+                    |> Seq.filter (fun s -> df.Lines |> Seq.contains s |> not)
                     |> Seq.toArray
 
                 DependenciesFileParser.parseDependenciesFile "tmp" true newLines |> ignore
@@ -126,7 +125,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
             data.Save(DirectoryInfo(fschPaketDir))
 
-            let loadingScriptsFilePath = PaketPaths.loadingScriptsDir scriptDir tfm scriptExt
+            let loadingScriptsFilePath = PaketPaths.loadingScriptsDir (Directory.GetCurrentDirectory()) tfm scriptExt
 
             log $"LOADING SCRIPTS: {loadingScriptsFilePath}"
             log (File.ReadAllText(loadingScriptsFilePath))

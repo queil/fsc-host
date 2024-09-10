@@ -1,5 +1,6 @@
 namespace Queil.FSharp.FscHost
 
+open System.Runtime.Loader
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.Text
@@ -175,12 +176,13 @@ module CompilerHost =
         let compileScript (rootFilePath: string) (metadata: ScriptCache) (options: Options) : Async<CompileOutput> =
 
             let log = options.Logger
+            let asmLoadContext = AssemblyLoadContext("script", true)
 
             let loadNuGetAssemblies nugetPaths =
                 nugetPaths
                 |> Seq.iter (fun path ->
                     log $"Loading assembly: %s{path}"
-                    path |> Assembly.LoadFrom |> ignore)
+                    path |> asmLoadContext.LoadFromAssemblyPath |> ignore)
 
             async {
                 options.CacheDir |> Directory.CreateDirectory |> ignore
@@ -202,7 +204,7 @@ module CompilerHost =
 
                     return
                         { AssemblyFilePath = path
-                          Assembly = Lazy<Assembly>(fun () -> path |> Path.GetFullPath |> Assembly.LoadFile) }
+                          Assembly = Lazy<Assembly>(fun () -> path |> Path.GetFullPath |> asmLoadContext.LoadFromAssemblyPath ) }
 
                 | path ->
 
@@ -234,7 +236,7 @@ module CompilerHost =
                     let getAssembly () =
                         async {
                             let! errors, _ = checker.Compile(compilerArgs |> List.toArray, "None")
-                            return getAssemblyOrThrow errors (fun () -> path |> Path.GetFullPath |> Assembly.LoadFile)
+                            return getAssemblyOrThrow errors (fun () -> path |> Path.GetFullPath |> asmLoadContext.LoadFromAssemblyPath)
                         }
 
                     let! assembly = getAssembly ()
@@ -244,7 +246,7 @@ module CompilerHost =
 
                     return
                         { AssemblyFilePath = outputDllName
-                          Assembly = Lazy<Assembly>(fun () -> path |> Path.GetFullPath |> Assembly.LoadFile) }
+                          Assembly = Lazy<Assembly>(fun () -> path |> Path.GetFullPath |> asmLoadContext.LoadFromAssemblyPath) }
             }
 
     open Internals

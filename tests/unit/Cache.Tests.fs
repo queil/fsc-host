@@ -91,8 +91,8 @@ let cacheTests =
               "Result should be '323'" |> Expect.equal result 323
           }
 
-          testAsync "Override cache dir path" {
-              let tmpPath = Path.Combine(Path.GetTempPath(), "fsc-host", Path.GetRandomFileName())
+          testAsync "Override output dir path" {
+              let tmpPath = Path.Combine(Path.GetTempPath(), ".fsch-override", Path.GetRandomFileName())
               Directory.CreateDirectory tmpPath |> ignore
 
               let findDlls () =
@@ -116,7 +116,7 @@ let cacheTests =
           }
 
           testAsync "Shouldn't cache if caching not enabled" {
-              let tmpPath = Path.Combine(Path.GetTempPath(), "fsc-host", Path.GetRandomFileName())
+              let tmpPath = Path.Combine(Path.GetTempPath(), ".fsch-override", Path.GetRandomFileName())
               Directory.CreateDirectory tmpPath |> ignore
 
               let findDlls () =

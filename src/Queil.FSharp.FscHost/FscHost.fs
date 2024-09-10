@@ -204,7 +204,8 @@ module CompilerHost =
 
                     return
                         { AssemblyFilePath = path
-                          Assembly = Lazy<Assembly>(fun () -> path |> Path.GetFullPath |> asmLoadContext.LoadFromAssemblyPath ) }
+                          Assembly =
+                            Lazy<Assembly>(fun () -> path |> Path.GetFullPath |> asmLoadContext.LoadFromAssemblyPath) }
 
                 | path ->
 
@@ -236,7 +237,10 @@ module CompilerHost =
                     let getAssembly () =
                         async {
                             let! errors, _ = checker.Compile(compilerArgs |> List.toArray, "None")
-                            return getAssemblyOrThrow errors (fun () -> path |> Path.GetFullPath |> asmLoadContext.LoadFromAssemblyPath)
+
+                            return
+                                getAssemblyOrThrow errors (fun () ->
+                                    path |> Path.GetFullPath |> asmLoadContext.LoadFromAssemblyPath)
                         }
 
                     let! assembly = getAssembly ()
@@ -246,7 +250,8 @@ module CompilerHost =
 
                     return
                         { AssemblyFilePath = outputDllName
-                          Assembly = Lazy<Assembly>(fun () -> path |> Path.GetFullPath |> asmLoadContext.LoadFromAssemblyPath) }
+                          Assembly =
+                            Lazy<Assembly>(fun () -> path |> Path.GetFullPath |> asmLoadContext.LoadFromAssemblyPath) }
             }
 
     open Internals

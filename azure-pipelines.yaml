@@ -27,7 +27,7 @@ steps:
     projects: tests/unit
     arguments: '-c Release /p:AltCover=true /p:AltCoverCobertura=coverage.xml /p:AltCoverAssemblyFilter="(.*)(?<!Queil.FSharp.FscHost)$"'
 
-- task: PublishCodeCoverageResults@1
+- task: PublishCodeCoverageResults@2
   inputs:
     summaryFileLocation: tests/unit/coverage.xml
     codeCoverageTool: cobertura

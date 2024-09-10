@@ -1,5 +1,7 @@
 namespace Queil.FSharp.FscHost
 
+open System.IO
+
 module Common =
 
     let options =
@@ -15,3 +17,8 @@ module Common =
                 $"Diagnostics: Property '%s{propertyName}' should be of type '%s{typeof<'a>.ToString()}' but is '%s{actualTypeSignature}'"
 
             reraise ()
+
+    let ensureTempPath () =
+        let tmpPath = Path.Combine(Path.GetTempPath(), "fsc-host", Path.GetRandomFileName())
+        Directory.CreateDirectory tmpPath |> ignore
+        tmpPath

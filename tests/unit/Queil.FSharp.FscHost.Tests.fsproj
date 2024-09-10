@@ -13,6 +13,7 @@
     <Compile Include="Paket.Tests.fs" />
     <Compile Include="Plugin.Tests.fs" />
     <Compile Include="Cache.Tests.fs" />
+    <Compile Include="Runtime.Tests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 

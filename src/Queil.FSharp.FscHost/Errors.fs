@@ -4,8 +4,6 @@ open System
 
 [<AutoOpen>]
 module Errors =
-    exception NuGetRestoreFailed of message: string
-
     type ScriptParseError(messages: string seq) =
         inherit Exception(String.Join(Environment.NewLine, messages))
         member _.Diagnostics = messages

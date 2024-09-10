@@ -107,7 +107,7 @@ let cacheTests =
                   plugin<int option> {
                       body "let plugin = Some 10"
                       cache true
-                      cache_dir tmpPath
+                      output_dir tmpPath
                       log System.Console.WriteLine
                   }
 
@@ -128,7 +128,7 @@ let cacheTests =
               let! _ =
                   plugin<int option> {
                       body "let plugin = Some 10"
-                      cache_dir tmpPath
+                      output_dir tmpPath
                       log System.Console.WriteLine
                   }
 

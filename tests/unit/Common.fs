@@ -19,6 +19,8 @@ module Common =
             reraise ()
 
     let ensureTempPath () =
-        let tmpPath = Path.Combine(Path.GetTempPath(), "fsc-host", Path.GetRandomFileName())
+        let tmpPath =
+            Path.Combine(Path.GetTempPath(), ".fsch-override", Path.GetRandomFileName())
+
         Directory.CreateDirectory tmpPath |> ignore
         tmpPath

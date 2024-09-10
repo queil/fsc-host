@@ -13,7 +13,9 @@ let cacheTests =
               File.WriteAllLines(filePath, lines |> Seq.toArray)
 
           let prepareScripts () =
-              let tmpPath = Path.Combine(Path.GetTempPath(), "fsc-host", Path.GetRandomFileName())
+              let tmpPath =
+                  Path.Combine(Path.GetTempPath(), ".fsch-override", Path.GetRandomFileName())
+
               Directory.CreateDirectory tmpPath |> ignore
               let scriptDir = tmpPath
               let rootScriptName = "script.fsx"
@@ -91,8 +93,10 @@ let cacheTests =
               "Result should be '323'" |> Expect.equal result 323
           }
 
-          testAsync "Override cache dir path" {
-              let tmpPath = Path.Combine(Path.GetTempPath(), "fsc-host", Path.GetRandomFileName())
+          testAsync "Override output dir path" {
+              let tmpPath =
+                  Path.Combine(Path.GetTempPath(), ".fsch-override", Path.GetRandomFileName())
+
               Directory.CreateDirectory tmpPath |> ignore
 
               let findDlls () =
@@ -107,7 +111,7 @@ let cacheTests =
                   plugin<int option> {
                       body "let plugin = Some 10"
                       cache true
-                      cache_dir tmpPath
+                      output_dir tmpPath
                       log System.Console.WriteLine
                   }
 
@@ -116,7 +120,9 @@ let cacheTests =
           }
 
           testAsync "Shouldn't cache if caching not enabled" {
-              let tmpPath = Path.Combine(Path.GetTempPath(), "fsc-host", Path.GetRandomFileName())
+              let tmpPath =
+                  Path.Combine(Path.GetTempPath(), ".fsch-override", Path.GetRandomFileName())
+
               Directory.CreateDirectory tmpPath |> ignore
 
               let findDlls () =
@@ -128,7 +134,7 @@ let cacheTests =
               let! _ =
                   plugin<int option> {
                       body "let plugin = Some 10"
-                      cache_dir tmpPath
+                      output_dir tmpPath
                       log System.Console.WriteLine
                   }
 

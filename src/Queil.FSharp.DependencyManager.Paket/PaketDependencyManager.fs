@@ -30,15 +30,29 @@ type ResolveDependenciesResult
 
 [<RequireQualifiedAccess>]
 module PaketPaths =
-    let internal scriptRootPaketDir (scriptDir: string) = Path.Combine(scriptDir, ".fsch")
 
     let internal mainGroupFile (tfm: string) (ext: string) = $"%s{tfm}/main.group.%s{ext}"
 
-    let internal loadingScriptsDir (scriptDir: string) (tfm: string) (ext: string) =
-        Path.Combine(scriptDir |> scriptRootPaketDir, Constants.PaketFolderName, "load", mainGroupFile tfm ext)
+    let internal loadingScriptsDir (dir: string) (tfm: string) (ext: string) =
+        Path.Combine(dir, Constants.PaketFolderName, "load", mainGroupFile tfm ext)
 
-    let paketFilesDir = Path.Combine(".fsch", Constants.PaketFilesFolderName)
+[<RequireQualifiedAccess>]
+module private Hash =
+    open System.Security.Cryptography
+    open System.Text
 
+    let sha256 (s: string) =
+        use sha256 = SHA256.Create()
+
+        s
+        |> Encoding.UTF8.GetBytes
+        |> sha256.ComputeHash
+        |> BitConverter.ToString
+        |> _.Replace("-", "")
+
+    let short (s: string) = s[0..10].ToLowerInvariant()
+
+// outputDirectory not really useful as it comes empty on GetProjectOptionsFromScript
 [<DependencyManager>]
 type PaketDependencyManager(outputDirectory: string option, useResultsCache: bool) =
     member _.Name = "paket"
@@ -60,27 +74,34 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
             timeout: int
         ) : obj =
 
-        let logPath = "/tmp/paket.log"
-        let log (line) = () //File.AppendAllLines(logPath, [ line ])
+        let workDirRoot = "/tmp/.fsch"
+
+        let workDir =
+            Path.Combine(workDirRoot, "paket", Hash.sha256 (scriptName) |> Hash.short)
+
+        let logPath = $"{workDir}/paket.log"
+        let log (line) = File.AppendAllLines(logPath, [ line ])
 
         try
             let scriptExt = scriptExt[1..]
-            let fschPaketDir = Directory.GetCurrentDirectory() |> PaketPaths.scriptRootPaketDir
-            Directory.CreateDirectory fschPaketDir |> ignore
 
-            log $"WORK DIR: {fschPaketDir}"
-            log $"------- SCRIPT: {scriptName} {scriptDir} ----------"
+            Directory.CreateDirectory workDir |> ignore
 
-            match Dependencies.TryLocate(fschPaketDir) with
+            log $"------- NEW SCRIPT ----------"
+            log $"SCRIPT NAME: {scriptName}"
+            log $"SCRIPT DIR: {scriptDir}"
+            log $"WORK DIR: {workDir}"
+
+            match Dependencies.TryLocate(workDir) with
             | Some df -> File.Delete df.DependenciesFile
             | None -> ()
 
             let deps =
                 let sources = [ PackageSources.DefaultNuGetV3Source ]
                 let additionalLines = [ "storage: none"; $"framework: {tfm}"; "" ]
-                Dependencies.Init(fschPaketDir, sources, additionalLines, (fun () -> ()))
+                Dependencies.Init(workDir, sources, additionalLines, (fun () -> ()))
                 log "init OK"
-                Dependencies.Locate(fschPaketDir)
+                Dependencies.Locate(workDir)
 
             log $"DEPS: {deps.DependenciesFile}"
 
@@ -123,14 +144,14 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                 |> Seq.filter (fun d -> d.PartialPath = expectedPartialPath)
                 |> Seq.head
 
-            data.Save(DirectoryInfo(fschPaketDir))
+            data.Save(DirectoryInfo(workDir))
 
-            let loadingScriptsFilePath = PaketPaths.loadingScriptsDir (Directory.GetCurrentDirectory()) tfm scriptExt
+            let loadingScriptsFilePath = PaketPaths.loadingScriptsDir workDir tfm scriptExt
 
             log $"LOADING SCRIPTS: {loadingScriptsFilePath}"
             log (File.ReadAllText(loadingScriptsFilePath))
 
-            let roots = [ Path.Combine(fschPaketDir, Constants.PaketFilesFolderName) ]
+            let roots = [ Path.Combine(workDir, Constants.PaketFilesFolderName) ]
 
             ResolveDependenciesResult(true, [||], [||], [], [ loadingScriptsFilePath ], roots)
         with e ->

@@ -251,14 +251,13 @@ module CompilerHost =
 
     let getAssembly (options: Options) (script: Script) : Async<CompileOutput> =
 
-
         async {
-            let (rootFilePath, scriptDir, cacheDir) =
+            let rootFilePath, scriptDir, cacheDir =
                 script |> ensureScriptFile options.CacheDir
 
-            Directory.SetCurrentDirectory(scriptDir)
             Directory.CreateDirectory scriptDir |> ignore
             Directory.CreateDirectory cacheDir |> ignore
+            Directory.SetCurrentDirectory(cacheDir)
 
             let cacheDepsFilePath = Path.Combine(cacheDir, Const.FschDeps)
 

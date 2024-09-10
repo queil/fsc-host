@@ -3,15 +3,11 @@ module Queil.FSharp.FscHost.Plugin.Tests
 open System.IO
 open Expecto
 open Queil.FSharp.FscHost.Plugin
+open Queil.FSharp.FscHost.Common
 open System
 
 [<Tests>]
 let ceTests =
-
-    let ensureTempPath () =
-        let tmpPath = Path.Combine(Path.GetTempPath(), "fsc-host", Path.GetRandomFileName())
-        Directory.CreateDirectory tmpPath |> ignore
-        tmpPath
 
     testList
         "Plugin builder"

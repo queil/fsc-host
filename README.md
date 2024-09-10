@@ -112,6 +112,10 @@ The public API of this library comes in three flavours:
 * compile'n'extract - `CompilerHost.getAssembly` can be used to compile a script into an assembly (which is automatically loaded). Then members can be extracted with `Member.get` function. This API gives more flexibility and enables using generic functions. 
   [Example](examples/CompileAndExtract)
 
+## Known issues
+
+* it's recommended to avoid mixing `nuget:` and `paket: nuget` in `#r` directives as it may result in an error where two versions of the same assembly are resolved. If it is not possible to avoid then the top-level script should specify [NuGet-compatible resolution strategies](https://fsprojects.github.io/Paket/dependencies-file.html#Resolver-strategy-for-transitive-dependencies) for paket. I.e. `strategy: min` and `lowest_matching: true`.
+
 ## Resources
 
 * [My blog post about the package](https://queil.net/2021/10/embedding-fsharp-compiler-fsc-host-nuget/)

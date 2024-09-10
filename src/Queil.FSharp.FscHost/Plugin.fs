@@ -61,9 +61,9 @@ module Plugin =
 
             CommonBuilder { state.State with options = options }
 
-        /// Overrides the default output dir path. It is only relevant if cache is enabled. Default: .fsc-host/cache
+        /// Overrides the default root output dir path. Default: /tmp/.fsch
         [<CustomOperation("output_dir")>]
-        member x.CacheDir(state: CommonBuilder, outputDir: string) =
+        member x.OutputDir(state: CommonBuilder, outputDir: string) =
             let options =
                 { state.State.options with
                     OutputDir = outputDir }

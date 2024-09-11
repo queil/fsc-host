@@ -74,13 +74,11 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
             timeout: int
         ) : obj =
 
-        let workDirRoot = "/tmp/.fsch"
-
         let workDir =
-            Path.Combine(workDirRoot, "paket", Hash.sha256 (scriptName) |> Hash.short)
+            Path.Combine(Path.GetTempPath(), ".fsch", Hash.sha256 (File.ReadAllText(scriptName)) |> Hash.short, "paket")
 
         let logPath = $"{workDir}/paket.log"
-        let log (line) = File.AppendAllLines(logPath, [ line ])
+        let log line = File.AppendAllLines(logPath, [ line ])
 
         try
             let scriptExt = scriptExt[1..]

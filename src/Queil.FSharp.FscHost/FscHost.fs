@@ -178,11 +178,17 @@ module CompilerHost =
             let log = options.Logger
             let asmLoadContext = AssemblyLoadContext("script", true)
 
-            let loadNuGetAssemblies nugetPaths =
-                nugetPaths
-                |> Seq.iter (fun path ->
-                    log $"Loading assembly: %s{path}"
-                    path |> asmLoadContext.LoadFromAssemblyPath |> ignore)
+            let getCompileOutput dllPath =
+                { AssemblyFilePath = dllPath
+                  Assembly =
+                    Lazy<Assembly>(fun () ->
+                        if options.AutoLoadNugetReferences then
+                            metadata.NuGets
+                            |> Seq.iter (fun path ->
+                                log $"Loading assembly: %s{path}"
+                                path |> asmLoadContext.LoadFromAssemblyPath |> ignore)
+
+                        dllPath |> Path.GetFullPath |> asmLoadContext.LoadFromAssemblyPath) }
 
             async {
 
@@ -195,23 +201,13 @@ module CompilerHost =
 
                 match outputDllName with
                 | path when File.Exists path ->
-                    log $"Found and loading cached assembly: %s{path}"
-
-                    if options.AutoLoadNugetReferences then
-                        log $"Cached deps file: %s{metadata.FilePath}"
-                        metadata.NuGets |> loadNuGetAssemblies
-
-                    return
-                        { AssemblyFilePath = path
-                          Assembly =
-                            Lazy<Assembly>(fun () -> path |> Path.GetFullPath |> asmLoadContext.LoadFromAssemblyPath) }
+                    log $"Found cached assembly: %s{path}"
+                    log $"Cached deps file: %s{metadata.FilePath}"
+                    return getCompileOutput path
 
                 | path ->
 
                     let refs = metadata.NuGets |> Seq.map (sprintf "-r:%s") |> Seq.toList
-
-                    if options.AutoLoadNugetReferences then
-                        metadata.NuGets |> loadNuGetAssemblies
 
                     let absoluteRootFilePath =
                         if Path.IsPathRooted rootFilePath then
@@ -224,33 +220,19 @@ module CompilerHost =
                           $"--out:{path}" ]
 
                     log (sprintf "Compiling with args: %s" (compilerArgs |> String.concat " "))
+                    let! errors, _ = checker.Compile(compilerArgs |> List.toArray, "fsch-getAssembly")
 
-                    let getAssemblyOrThrow (errors: FSharpDiagnostic array) (getAssembly: unit -> Assembly) =
-                        match errors with
-                        | xs when xs |> Array.exists (fun x -> x.Severity = FSharpDiagnosticSeverity.Error) ->
-                            raise (ScriptCompileError(errors |> Seq.map string))
-                        | xs ->
-                            xs |> Seq.iter (string >> log)
-                            getAssembly ()
+                    match errors with
+                    | xs when xs |> Array.exists (fun x -> x.Severity = FSharpDiagnosticSeverity.Error) ->
+                        raise (ScriptCompileError(errors |> Seq.map string))
+                    | xs -> xs |> Seq.iter (string >> log)
 
-                    let getAssembly () =
-                        async {
-                            let! errors, _ = checker.Compile(compilerArgs |> List.toArray, "fsch-getAssembly")
-
-                            return
-                                getAssemblyOrThrow errors (fun () ->
-                                    path |> Path.GetFullPath |> asmLoadContext.LoadFromAssemblyPath)
-                        }
-
-                    let! assembly = getAssembly ()
+                    let compileOutput = getCompileOutput outputDllName
 
                     if options.LogListTypes then
-                        assembly.GetTypes() |> Seq.iter (fun t -> log t.FullName)
+                        compileOutput.Assembly.Value.GetTypes() |> Seq.iter (fun t -> log t.FullName)
 
-                    return
-                        { AssemblyFilePath = outputDllName
-                          Assembly =
-                            Lazy<Assembly>(fun () -> path |> Path.GetFullPath |> asmLoadContext.LoadFromAssemblyPath) }
+                    return compileOutput
             }
 
     open Internals

@@ -74,8 +74,20 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
             timeout: int
         ) : obj =
 
-        let workDir =
-            Path.Combine(Path.GetTempPath(), ".fsch", Hash.sha256 (File.ReadAllText(scriptName)) |> Hash.short, "paket")
+        let scriptName, workDir =
+            match outputDirectory with
+            | Some dir -> scriptName, dir // actual compilation -> outputDirectory is set
+            | None when scriptName.Contains("||") -> // nasty hack for GetProjectOptionsFromScript fired from fsch. outputDirectory is not set, so it's passed a hacky way via script name
+                let chunks = scriptName.Split("||")
+                (chunks[1], chunks[0])
+            | None -> // just a random path when called from other tooling
+                scriptName,
+                Path.Combine(
+                    Path.GetTempPath(),
+                    ".fsch",
+                    Hash.sha256 (File.ReadAllText(scriptName)) |> Hash.short,
+                    "paket"
+                )
 
         let logPath = $"{workDir}/paket.log"
         let log line = File.AppendAllLines(logPath, [ line ])
@@ -85,10 +97,10 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
             Directory.CreateDirectory workDir |> ignore
 
-            log $"------- NEW SCRIPT ----------"
+            log "------- NEW SCRIPT ----------"
             log $"SCRIPT NAME: {scriptName}"
-            log $"SCRIPT DIR: {scriptDir}"
-            log $"WORK DIR: {workDir}"
+            log $"CURRENT WORKING DIR: {scriptDir}"
+            log $"OUTPUT DIR: {workDir}"
 
             match Dependencies.TryLocate(workDir) with
             | Some df -> File.Delete df.DependenciesFile

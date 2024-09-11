@@ -2,7 +2,6 @@ module Queil.FSharp.FscHost.Paket.Tests
 
 open Expecto
 open Queil.FSharp.FscHost
-open Queil.FSharp.FscHost.Common
 open System.IO
 
 [<Tests>]
@@ -39,7 +38,9 @@ let paketTests =
                   <| fun () ->
                       Queil.FSharp.FscHost.File scriptFilePath
                       |> CompilerHost.getMember
-                          { options with UseCache = true }
+                          { options with
+                              UseCache = true
+                              OutputDir = "/tmp/.fsch-override" }
                           (Member<unit -> unit>.Path("Script.X.x"))
                       |> Async.RunSynchronously
 

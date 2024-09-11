@@ -277,14 +277,24 @@ module CompilerHost =
                             let source = File.ReadAllText rootFilePath |> SourceText.ofString
 
                             let! projOptions, errors =
-                                checker.GetProjectOptionsFromScript(rootFilePath, source, previewEnabled = true)
+                                // outputDir doesn't get propagated as --out is not supported here
+                                // need to pass it a hacky way
+                                let hackScriptName = outputDir + "||" + rootFilePath
+                                checker.GetProjectOptionsFromScript(hackScriptName, source, previewEnabled = true)
 
                             match errors with
                             | [] ->
                                 let metadata =
                                     { ScriptCache.Default with
                                         FilePath = cacheDepsFilePath
-                                        SourceFiles = projOptions.SourceFiles |> Seq.toList }
+                                        SourceFiles =
+                                            projOptions.SourceFiles
+                                            |> Seq.map (fun s ->
+                                                match s with
+                                                // unhack the path returned from projOptions
+                                                | s when s.Contains("||") -> s.Split("||")[1]
+                                                | s -> s)
+                                            |> Seq.toList }
 
                                 if options.Compiler.Standalone then
                                     return Ok metadata

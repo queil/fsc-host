@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
@@ -10,8 +10,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Queil.FSharp.FscHost" Version="0.18.0" />
-    <PackageReference Update="FSharp.Core" Version="6.0.6" />
+    <PackageReference Include="Queil.FSharp.FscHost" Version="0.34.0" />
   </ItemGroup>
 
 </Project>

@@ -10,7 +10,7 @@ try
             (Member<string -> string>.Path "Script.helloFromScript")
             (Member<int list>.Path "Script.myPrimes")
 
-    let (helloWorld, primesOfTheDay) = getScriptProperties () |> Async.RunSynchronously
+    let helloWorld, primesOfTheDay = getScriptProperties () |> Async.RunSynchronously
 
     let myName = "Console Example"
 

@@ -6,6 +6,7 @@ module Script =
         File "script.fsx"
         |> CompilerHost.getAssembly Options.Default
         |> Async.RunSynchronously
+        |> _.Assembly.Value
 
     let generic<'a, 'b> = assembly |> Member.get<'a * 'b -> string> "Script.generic"
 

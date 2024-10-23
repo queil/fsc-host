@@ -300,13 +300,17 @@ module CompilerHost =
                     else
                         return! buildMetadata ()
                 }
+            let originalDir = Directory.GetCurrentDirectory()
+            try
+                match metadataResult with
+                | Ok metadata ->
+                    Directory.SetCurrentDirectory outputDir
+                    metadata.Save()
 
-            match metadataResult with
-            | Ok metadata ->
-                metadata.Save()
-
-                return! compileScript rootFilePath metadata { options with OutputDir = outputDir }
-            | Error errors -> return raise (ScriptParseError(errors |> Seq.map string))
+                    return! compileScript rootFilePath metadata { options with OutputDir = outputDir }
+                | Error errors -> return raise (ScriptParseError(errors |> Seq.map string))
+            finally
+                Directory.SetCurrentDirectory originalDir
         }
 
     let getMember<'a> (options: Options) (Path pathA: Member<'a>) (script: Script) : Async<'a> =

@@ -75,7 +75,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
         ) : obj =
 
         let workDir =
-            Path.Combine(Path.GetTempPath(), ".fsch", Hash.sha256 scriptDir |> Hash.short, "paket")
+            Path.Combine(Path.GetTempPath(), ".fsch", "paket", Hash.sha256 scriptDir |> Hash.short)
 
         let logPath = $"{workDir}/paket.log"
         let log line = File.AppendAllLines(logPath, [ line ])
@@ -85,7 +85,9 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
             Directory.CreateDirectory workDir |> ignore
 
-            log $"------- NEW SCRIPT ----------"
+            log "\n----------------------------------------"
+            log $"            PROCESS DEPS               "
+            log "----------------------------------------"
             log $"SCRIPT NAME: {scriptName}"
             log $"SCRIPT DIR: {scriptDir}"
             log $"WORK DIR: {workDir}"
@@ -128,13 +130,17 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
                 DependenciesFileParser.parseDependenciesFile "tmp" true newLines |> ignore
                 File.AppendAllLines(deps.DependenciesFile, newLines)
+                log "\n........... paket.dependencies ...........\n"
                 log (File.ReadAllText(deps.DependenciesFile))
+                
+                log "...\n"
             with _ ->
                 File.Delete deps.DependenciesFile
                 log "Deleted invalid deps file"
                 reraise ()
-
+          
             deps.Install(false)
+
             let expectedPartialPath = PaketPaths.mainGroupFile tfm scriptExt
 
             let data =
@@ -146,7 +152,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
             let loadingScriptsFilePath = PaketPaths.loadingScriptsDir workDir tfm scriptExt
 
-            log $"LOADING SCRIPTS: {loadingScriptsFilePath}"
+            log $"LOADING SCRIPTS: {loadingScriptsFilePath}\n"
             log (File.ReadAllText(loadingScriptsFilePath))
 
             let roots = [ Path.Combine(workDir, Constants.PaketFilesFolderName) ]

@@ -304,7 +304,7 @@ module CompilerHost =
             try
                 match metadataResult with
                 | Ok metadata ->
-                    Directory.SetCurrentDirectory outputDir
+                    Directory.SetCurrentDirectory scriptDir
                     metadata.Save()
 
                     return! compileScript rootFilePath metadata { options with OutputDir = outputDir }

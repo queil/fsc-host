@@ -301,12 +301,18 @@ module CompilerHost =
                         return! buildMetadata ()
                 }
 
-            match metadataResult with
-            | Ok metadata ->
-                metadata.Save()
+            let originalDir = Directory.GetCurrentDirectory()
 
-                return! compileScript rootFilePath metadata { options with OutputDir = outputDir }
-            | Error errors -> return raise (ScriptParseError(errors |> Seq.map string))
+            try
+                match metadataResult with
+                | Ok metadata ->
+                    Directory.SetCurrentDirectory scriptDir
+                    metadata.Save()
+
+                    return! compileScript rootFilePath metadata { options with OutputDir = outputDir }
+                | Error errors -> return raise (ScriptParseError(errors |> Seq.map string))
+            finally
+                Directory.SetCurrentDirectory originalDir
         }
 
     let getMember<'a> (options: Options) (Path pathA: Member<'a>) (script: Script) : Async<'a> =

@@ -14,6 +14,43 @@ let paketTests =
         "Paket"
         [
 
+          let asScript filePath lines =
+              Directory.CreateDirectory(FileInfo(filePath).DirectoryName) |> ignore
+              File.WriteAllLines(filePath, lines |> Seq.toArray)
+
+          let prepareScripts () =
+              let tmpPath =
+                  Path.Combine(Path.GetTempPath(), "fsch-paket-tests", Path.GetRandomFileName())
+
+              Directory.CreateDirectory tmpPath |> ignore
+              let scriptDir = tmpPath
+              let rootScriptName = "script.fsx"
+              let rootScriptPath = Path.Combine(scriptDir, rootScriptName)
+              let fileA = Path.Combine(scriptDir, "depa.fsx")
+              let fileB = Path.Combine(scriptDir, "depb", "depb.fsx")
+
+              [ $""" #r  "paket: nuget Yzl >= 1.0.0" ;#load "%s{fileB.Replace(@"\", @"\\")}" """
+                """let valueA = 11""" ]
+              |> asScript fileA
+
+              [ """let valueB = 13""" ] |> asScript fileB
+
+              [ $""" #r  "paket: nuget Yzl >= 2.0.0" ; #load "%s{fileA.Replace(@"\", @"\\")}" """
+                """let plugin = Some (Depa.valueA * Depb.valueB) """ ]
+              |> asScript rootScriptPath
+
+              scriptDir, rootScriptName, fileA, fileB
+
+          testAsync "Smoke test (ID: 783)" {
+              let scriptDir, rootScriptName, _, _ = prepareScripts ()
+
+              let! _ =
+                  Queil.FSharp.FscHost.File(Path.Combine(scriptDir, rootScriptName))
+                  |> CompilerHost.getAssembly { options with UseCache = false }
+
+              ()
+          }
+
           test "Should support Paket nuget with cache" {
               let script =
                   """

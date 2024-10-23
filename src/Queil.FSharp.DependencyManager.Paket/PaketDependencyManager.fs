@@ -75,7 +75,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
         ) : obj =
 
         let workDir =
-            Path.Combine(Path.GetTempPath(), ".fsch", Hash.sha256 (File.ReadAllText(scriptName)) |> Hash.short, "paket")
+            Path.Combine(Path.GetTempPath(), ".fsch", Hash.sha256 (File.ReadAllText(scriptDir)) |> Hash.short, "paket")
 
         let logPath = $"{workDir}/paket.log"
         let log line = File.AppendAllLines(logPath, [ line ])

@@ -29,7 +29,8 @@ let paketTests =
               let fileA = Path.Combine(scriptDir, "depa.fsx")
               let fileB = Path.Combine(scriptDir, "depb", "depb.fsx")
 
-              [ $""" #r  "paket: nuget Yzl >= 1.0.0" ;#load "%s{fileB.Replace(@"\", @"\\")}" """; """let valueA = 11""" ]
+              [ $""" #r  "paket: nuget Yzl >= 1.0.0" ;#load "%s{fileB.Replace(@"\", @"\\")}" """
+                """let valueA = 11""" ]
               |> asScript fileA
 
               [ """let valueB = 13""" ] |> asScript fileB
@@ -43,11 +44,13 @@ let paketTests =
           testAsync "Smoke test (ID: 783)" {
               let scriptDir, rootScriptName, _, _ = prepareScripts ()
 
-              let! _ = Queil.FSharp.FscHost.File (Path.Combine(scriptDir, rootScriptName))
-                       |> CompilerHost.getAssembly { options with UseCache = false }
+              let! _ =
+                  Queil.FSharp.FscHost.File(Path.Combine(scriptDir, rootScriptName))
+                  |> CompilerHost.getAssembly { options with UseCache = false }
+
               ()
           }
-        
+
           test "Should support Paket nuget with cache" {
               let script =
                   """

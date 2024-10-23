@@ -300,7 +300,9 @@ module CompilerHost =
                     else
                         return! buildMetadata ()
                 }
+
             let originalDir = Directory.GetCurrentDirectory()
+
             try
                 match metadataResult with
                 | Ok metadata ->

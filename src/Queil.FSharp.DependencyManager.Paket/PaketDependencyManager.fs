@@ -132,13 +132,13 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                 File.AppendAllLines(deps.DependenciesFile, newLines)
                 log "\n........... paket.dependencies ...........\n"
                 log (File.ReadAllText(deps.DependenciesFile))
-                
+
                 log "...\n"
             with _ ->
                 File.Delete deps.DependenciesFile
                 log "Deleted invalid deps file"
                 reraise ()
-          
+
             deps.Install(false)
 
             let expectedPartialPath = PaketPaths.mainGroupFile tfm scriptExt

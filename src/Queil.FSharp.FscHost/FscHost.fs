@@ -137,8 +137,8 @@ module CompilerHost =
 
             let combinedHash =
                 sourceFiles
-                |> Seq.sort
                 |> Seq.map fileHash
+                |> Seq.sort
                 |> Seq.reduce (fun a b -> a + b)
                 |> sha256
 
@@ -271,7 +271,10 @@ module CompilerHost =
                                 let metadata =
                                     { ScriptCache.Default with
                                         FilePath = cacheDepsFilePath
-                                        SourceFiles = projOptions.SourceFiles |> Seq.toList }
+                                        SourceFiles = projOptions.SourceFiles |> Seq.except [rootFilePath] |> Seq.toList }
+                                log "Source files:"
+                                for sf in metadata.SourceFiles do
+                                    log $"  %s{sf}"
 
                                 if options.Compiler.Standalone then
                                     return Ok metadata

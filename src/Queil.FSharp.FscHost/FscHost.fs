@@ -239,10 +239,15 @@ module CompilerHost =
 
     let getAssembly (options: Options) (script: Script) : Async<CompileOutput> =
 
+        let log = options.Logger
         async {
             let rootFilePath, scriptDir, outputDir =
                 script |> ensureScriptFile options.OutputDir
-
+            
+            log $"Root file path: %s{rootFilePath}"
+            log $"Script dir: %s{scriptDir}"
+            log $"Output dir: %s{outputDir}"
+                
             match script with
             | Inline _ -> Directory.CreateDirectory scriptDir |> ignore
             | _ -> ()
@@ -290,13 +295,17 @@ module CompilerHost =
                         }
 
                     if File.Exists cacheDepsFilePath then
+                        log $"Loading cached metadata from: %s{cacheDepsFilePath}"
                         let c = ScriptCache.Load cacheDepsFilePath
-                        let allFilesExist = c.SourceFiles |> Seq.map File.Exists |> Seq.reduce (&&)
+                        let missingSourceFiles = c.SourceFiles |> Seq.filter (not << File.Exists) |> Seq.toList
 
-                        if not <| allFilesExist then
+                        match missingSourceFiles with
+                        | [] -> return Ok c
+                        | files ->
+                            log $"Cached metadata is stale: %s{cacheDepsFilePath}"
+                            for f in files do log $"Source file: %s{f} is missing"
+                            log "Rebuilding metadata"
                             return! buildMetadata ()
-                        else
-                            return Ok c
                     else
                         return! buildMetadata ()
                 }

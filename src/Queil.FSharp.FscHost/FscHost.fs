@@ -137,8 +137,8 @@ module CompilerHost =
 
             let combinedHash =
                 sourceFiles
-                |> Seq.sort
                 |> Seq.map fileHash
+                |> Seq.sort
                 |> Seq.reduce (fun a b -> a + b)
                 |> sha256
 
@@ -272,6 +272,9 @@ module CompilerHost =
                                     { ScriptCache.Default with
                                         FilePath = cacheDepsFilePath
                                         SourceFiles = projOptions.SourceFiles |> Seq.toList }
+                                log "Source files:"
+                                for sf in metadata.SourceFiles do
+                                    log $"  %s{sf}"
 
                                 if options.Compiler.Standalone then
                                     return Ok metadata
@@ -295,17 +298,7 @@ module CompilerHost =
                         }
 
                     if File.Exists cacheDepsFilePath then
-                        log $"Loading cached metadata from: %s{cacheDepsFilePath}"
-                        let c = ScriptCache.Load cacheDepsFilePath
-                        let missingSourceFiles = c.SourceFiles |> Seq.filter (not << File.Exists) |> Seq.toList
-
-                        match missingSourceFiles with
-                        | [] -> return Ok c
-                        | files ->
-                            log $"Cached metadata is stale: %s{cacheDepsFilePath}"
-                            for f in files do log $"Source file: %s{f} is missing"
-                            log "Rebuilding metadata"
-                            return! buildMetadata ()
+                        return Ok (ScriptCache.Load cacheDepsFilePath)
                     else
                         return! buildMetadata ()
                 }

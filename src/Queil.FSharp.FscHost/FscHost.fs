@@ -271,7 +271,7 @@ module CompilerHost =
                                 let metadata =
                                     { ScriptCache.Default with
                                         FilePath = cacheDepsFilePath
-                                        SourceFiles = projOptions.SourceFiles |> Seq.except [rootFilePath] |> Seq.toList }
+                                        SourceFiles = projOptions.SourceFiles |> Seq.toList }
                                 log "Source files:"
                                 for sf in metadata.SourceFiles do
                                     log $"  %s{sf}"
@@ -298,17 +298,7 @@ module CompilerHost =
                         }
 
                     if File.Exists cacheDepsFilePath then
-                        log $"Loading cached metadata from: %s{cacheDepsFilePath}"
-                        let c = ScriptCache.Load cacheDepsFilePath
-                        let missingSourceFiles = c.SourceFiles |> Seq.filter (not << File.Exists) |> Seq.toList
-
-                        match missingSourceFiles with
-                        | [] -> return Ok c
-                        | files ->
-                            log $"Cached metadata is stale: %s{cacheDepsFilePath}"
-                            for f in files do log $"Source file: %s{f} is missing"
-                            log "Rebuilding metadata"
-                            return! buildMetadata ()
+                        return Ok (ScriptCache.Load cacheDepsFilePath)
                     else
                         return! buildMetadata ()
                 }

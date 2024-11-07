@@ -10,7 +10,8 @@ let paketTests =
 
     let options = Common.options
 
-    testList
+    testSequencedGroup "Paket"
+    <| testList
         "Paket"
         [
 

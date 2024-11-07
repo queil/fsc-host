@@ -131,7 +131,7 @@ module CompilerHost =
 
         let short (s: string) = s[0..10].ToLowerInvariant()
 
-        let deepSourceHash sourceFiles =
+        let deepSourceHash rootContentHash sourceFiles =
 
             let fileHash filePath = File.ReadAllText filePath |> sha256
 
@@ -139,7 +139,8 @@ module CompilerHost =
                 sourceFiles
                 |> Seq.map fileHash
                 |> Seq.sort
-                |> Seq.reduce (fun a b -> a + b)
+                |> Seq.fold (fun a b -> a + b) String.Empty
+                |> (+) rootContentHash
                 |> sha256
 
             short combinedHash
@@ -194,7 +195,7 @@ module CompilerHost =
 
                 let outputDllName =
                     if options.UseCache then
-                        let hash = Hash.deepSourceHash metadata.SourceFiles
+                        let hash = Hash.deepSourceHash (rootFilePath |> File.ReadAllText |> Hash.sha256 |> Hash.short) metadata.SourceFiles
                         Path.Combine(options.OutputDir.TrimEnd('\\', '/'), $"{hash}.dll")
                     else
                         $"{Path.GetTempFileName()}.dll"
@@ -271,9 +272,9 @@ module CompilerHost =
                                 let metadata =
                                     { ScriptCache.Default with
                                         FilePath = cacheDepsFilePath
-                                        SourceFiles = projOptions.SourceFiles |> Seq.toList }
+                                        SourceFiles = projOptions.SourceFiles |> Seq.except [rootFilePath] |> Seq.toList }
                                 log "Source files:"
-                                for sf in metadata.SourceFiles do
+                                for sf in projOptions.SourceFiles do
                                     log $"  %s{sf}"
 
                                 if options.Compiler.Standalone then
@@ -283,7 +284,7 @@ module CompilerHost =
                                         Ok(
                                             { metadata with
                                                 NuGets =
-                                                    metadata.SourceFiles
+                                                    projOptions.SourceFiles
                                                     |> Seq.filter (fun p ->
                                                         p.Contains("/.packagemanagement/nuget/")
                                                         || p.Contains("/.paket/load/"))

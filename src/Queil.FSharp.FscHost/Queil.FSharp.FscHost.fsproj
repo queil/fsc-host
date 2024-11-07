@@ -34,8 +34,8 @@
   </ItemGroup>
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'net8.0' ">
-    <PackageReference Include="FSharp.Compiler.Service" Version="[43.8.101]" />
-    <PackageReference Update="FSharp.Core" Version="[8.0.101]" />
+    <PackageReference Include="FSharp.Compiler.Service" Version="[43.8.401]" />
+    <PackageReference Update="FSharp.Core" Version="[8.0.401]" />
   </ItemGroup>
 
   <ItemGroup>

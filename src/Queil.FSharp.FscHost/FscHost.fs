@@ -139,7 +139,7 @@ module CompilerHost =
                 sourceFiles
                 |> Seq.map fileHash
                 |> Seq.sort
-                |> Seq.reduce (fun a b -> a + b)
+                |> Seq.fold (fun a b -> a + b) String.Empty
                 |> (+) rootContentHash
                 |> sha256
 

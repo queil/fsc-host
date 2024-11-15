@@ -93,6 +93,31 @@ let cacheTests =
               "Result should be '323'" |> Expect.equal result 323
           }
 
+          testAsync "Should invalidate the cache if it fails to calculate the cache hash due to source files missing" {
+
+              let scriptDir, rootScriptName, fileA, fileB = prepareScripts ()
+
+              let plugin () =
+                  plugin<int option> {
+                      load
+                      dir scriptDir
+                      file rootScriptName
+                      cache true
+                  }
+
+              let! firstResult = plugin ()
+
+              let result = "Some int expected" |> Expect.wantSome firstResult
+              "Result should be '143'" |> Expect.equal result 143
+
+              File.Delete fileB
+
+              let! secondResult = plugin ()
+
+              let result = "Some int expected" |> Expect.wantSome secondResult
+              "Result should be '323'" |> Expect.equal result 323
+          }
+          
           testAsync "Override output dir path" {
               let tmpPath =
                   Path.Combine(Path.GetTempPath(), ".fsch-override", Path.GetRandomFileName())

@@ -210,6 +210,37 @@ let myFunc () = Json.Pointer.JsonPointer.Parse("/some").ToString()
               "Value should match" |> Expect.equal (myFunc ()) "/some"
           }
 
+          test "Should correctly load dlls via r ID:94723" {
+              let script =
+                  """
+module Test.Script
+
+#r "bin/Debug/net9.0/Queil.FSharp.FscHost.dll"
+
+open Queil.FSharp.FscHost
+
+let myFunc () = Inline "test" |> string
+"""
+
+              let myFunc =
+                  Common.invoke
+                  <| fun () ->
+                      Inline script
+                      |>
+
+                      CompilerHost.getAssembly
+                          { Common.options with
+                              UseCache = false
+                              Compiler =
+                                  { Common.options.Compiler with
+                                      IncludeHostEntryAssembly = false } }
+                      |> Async.RunSynchronously
+                      |> fun x -> x.Assembly.Value
+                      |> Member.get<unit -> string> "Test.Script.myFunc"
+
+              "Value should match" |> Expect.equal (myFunc ()) @"Inline ""test"""
+          }
+
           test "Should pass defined symbols" {
               let script =
                   """module Test.Script

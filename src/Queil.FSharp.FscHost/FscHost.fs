@@ -302,7 +302,7 @@ module CompilerHost =
                                                         | _ -> None)
                                                     |> Seq.map (function
                                                         | p when Path.IsPathRooted p -> p
-                                                        | p -> Path.GetFullPath p)
+                                                        | p -> Path.GetFullPath (Path.Combine(scriptDir, p)))
                                                     |> Seq.toList }
                             | errors -> return Error errors
                         }

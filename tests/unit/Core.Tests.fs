@@ -3,7 +3,7 @@ module Queil.FSharp.FscHost.Core.Tests
 open Expecto
 open Queil.FSharp.FscHost
 
-
+open Queil.FSharp.FscHost.Common
 
 [<Tests>]
 let tests =
@@ -211,21 +211,28 @@ let myFunc () = Json.Pointer.JsonPointer.Parse("/some").ToString()
           }
 
           test "Should correctly load dlls via r ID:94723" {
-              let script =
+
+              let tmpPath = ensureTempPath ()
+              System.IO.File.Copy("bin/Debug/net9.0/Queil.FSharp.FscHost.dll", $"{tmpPath}/Queil.FSharp.FscHost.dll")
+              let fullScriptPath = $"{tmpPath}/94723.fsx"
+
+              let scriptBody =
                   """
 module Test.Script
 
-#r "bin/Debug/net9.0/Queil.FSharp.FscHost.dll"
+#r "./Queil.FSharp.FscHost.dll"
 
 open Queil.FSharp.FscHost
 
 let myFunc () = Inline "test" |> string
 """
 
+              System.IO.File.WriteAllText(fullScriptPath, scriptBody)
+
               let myFunc =
                   Common.invoke
                   <| fun () ->
-                      Inline script
+                      File fullScriptPath
                       |>
 
                       CompilerHost.getAssembly

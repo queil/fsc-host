@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <GenerateProgramFile>false</GenerateProgramFile>
     <NoWarn>NU1608</NoWarn>
   </PropertyGroup>
@@ -18,11 +18,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AltCover" Version="8.6.*" />
+    <PackageReference Include="AltCover" Version="9.*" />
     <PackageReference Include="Expecto" Version="10.*" />
     <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.*" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
-    <PackageReference Update="FSharp.Core" Version="8.0.401" />
+    <PackageReference Update="FSharp.Core" Version="9.0.201" />
   </ItemGroup>
 
   <ItemGroup>

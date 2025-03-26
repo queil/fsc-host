@@ -3,6 +3,7 @@ module Queil.FSharp.FscHost.Cache.Tests
 open System.Diagnostics
 open Expecto
 open Queil.FSharp.FscHost.Plugin
+open Queil.FSharp.FscHost.Common
 open System.IO
 
 [<Tests>]
@@ -13,10 +14,7 @@ let cacheTests =
               File.WriteAllLines(filePath, lines |> Seq.toArray)
 
           let prepareScripts () =
-              let tmpPath =
-                  Path.Combine(Path.GetTempPath(), ".fsch-override", Path.GetRandomFileName())
-
-              Directory.CreateDirectory tmpPath |> ignore
+              let tmpPath = ensureTempPath ()
               let scriptDir = tmpPath
               let rootScriptName = "script.fsx"
               let rootScriptPath = Path.Combine(scriptDir, rootScriptName)
@@ -94,10 +92,7 @@ let cacheTests =
           }
 
           testAsync "Override output dir path" {
-              let tmpPath =
-                  Path.Combine(Path.GetTempPath(), ".fsch-override", Path.GetRandomFileName())
-
-              Directory.CreateDirectory tmpPath |> ignore
+              let tmpPath = ensureTempPath ()
 
               let findDlls () =
                   Directory.EnumerateDirectories tmpPath
@@ -120,10 +115,7 @@ let cacheTests =
           }
 
           testAsync "Shouldn't cache if caching not enabled" {
-              let tmpPath =
-                  Path.Combine(Path.GetTempPath(), ".fsch-override", Path.GetRandomFileName())
-
-              Directory.CreateDirectory tmpPath |> ignore
+              let tmpPath = ensureTempPath ()
 
               let findDlls () =
                   Directory.EnumerateFiles tmpPath |> Seq.tryFind (fun f -> f.EndsWith(".dll"))

@@ -2,8 +2,8 @@ module Queil.FSharp.FscHost.Core.Tests
 
 open Expecto
 open Queil.FSharp.FscHost
-
-
+open Queil.FSharp.FscHost.Common
+open System.IO
 
 [<Tests>]
 let tests =
@@ -208,6 +208,49 @@ let myFunc () = Json.Pointer.JsonPointer.Parse("/some").ToString()
                       |> Member.get<unit -> string> "Test.Script.myFunc"
 
               "Value should match" |> Expect.equal (myFunc ()) "/some"
+          }
+
+          test "Should correctly load dlls via r ID:94723" {
+
+              let tmpPath = ensureTempPath ()
+
+              System.IO.File.Copy(
+                  $"{FileInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).DirectoryName}/Queil.FSharp.FscHost.dll",
+                  $"{tmpPath}/Queil.FSharp.FscHost.dll"
+              )
+
+              let fullScriptPath = $"{tmpPath}/94723.fsx"
+
+              let scriptBody =
+                  """
+module Test.Script
+
+#r "./Queil.FSharp.FscHost.dll"
+
+open Queil.FSharp.FscHost
+
+let myFunc () = Inline "test" |> string
+"""
+
+              System.IO.File.WriteAllText(fullScriptPath, scriptBody)
+
+              let myFunc =
+                  Common.invoke
+                  <| fun () ->
+                      Queil.FSharp.FscHost.File fullScriptPath
+                      |>
+
+                      CompilerHost.getAssembly
+                          { Common.options with
+                              UseCache = false
+                              Compiler =
+                                  { Common.options.Compiler with
+                                      IncludeHostEntryAssembly = false } }
+                      |> Async.RunSynchronously
+                      |> fun x -> x.Assembly.Value
+                      |> Member.get<unit -> string> "Test.Script.myFunc"
+
+              "Value should match" |> Expect.equal (myFunc ()) @"Inline ""test"""
           }
 
           test "Should pass defined symbols" {

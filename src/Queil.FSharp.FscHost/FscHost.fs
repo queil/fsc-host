@@ -70,12 +70,12 @@ type CompileOutput =
       Assembly: Lazy<Assembly> }
 
 type ScriptCache =
-    { NuGets: string list
+    { References: string list
       SourceFiles: string list
       FilePath: string }
 
     static member Default =
-        { NuGets = []
+        { References = []
           SourceFiles = []
           FilePath = "" }
 
@@ -84,8 +84,10 @@ type ScriptCache =
         |> File.ReadAllLines
         |> Seq.fold
             (fun x s ->
-                match s.Split("#") |> Seq.toList with
-                | [ "n"; v ] -> { x with NuGets = v :: x.NuGets }
+                match s.Split "#" |> Seq.toList with
+                | [ "n"; v ] ->
+                    { x with
+                        References = v :: x.References }
                 | [ "s"; v ] ->
                     { x with
                         SourceFiles = v :: x.SourceFiles }
@@ -95,7 +97,7 @@ type ScriptCache =
 
     member cache.Save() =
         [ yield! cache.SourceFiles |> Seq.map (fun v -> $"s#{v}")
-          yield! cache.NuGets |> Seq.map (fun v -> $"n#{v}") ]
+          yield! cache.References |> Seq.map (fun v -> $"n#{v}") ]
         |> fun lines -> File.WriteAllLines(cache.FilePath, lines)
 
 type Options =
@@ -154,12 +156,12 @@ module CompilerHost =
                 | File path ->
                     let shallowHash = path |> File.ReadAllText |> Hash.sha256 |> Hash.short
                     let scriptDir = Path.GetDirectoryName path
-                    (path, scriptDir, Path.Combine(outputRootDir, shallowHash))
+                    path, scriptDir, Path.Combine(outputRootDir, shallowHash)
                 | Inline body ->
                     let shallowHash = body |> Hash.sha256 |> Hash.short
                     let scriptDir = Path.Combine(Path.GetTempPath(), Const.FschDir, shallowHash)
                     let filePath = Path.Combine(scriptDir, Const.InlineFsx)
-                    (filePath, scriptDir, Path.Combine(outputRootDir, shallowHash))
+                    filePath, scriptDir, Path.Combine(outputRootDir, shallowHash)
 
             let createInlineScriptFile (filePath: string) =
                 function
@@ -172,7 +174,7 @@ module CompilerHost =
 
             script |> createInlineScriptFile scriptFilePath
 
-            (scriptFilePath, scriptDir, cacheDir)
+            scriptFilePath, scriptDir, cacheDir
 
         let compileScript (rootFilePath: string) (metadata: ScriptCache) (options: Options) : Async<CompileOutput> =
 
@@ -184,7 +186,7 @@ module CompilerHost =
                   Assembly =
                     Lazy<Assembly>(fun () ->
                         if options.AutoLoadNugetReferences then
-                            metadata.NuGets
+                            metadata.References
                             |> Seq.iter (fun path ->
                                 log $"Loading assembly: %s{path}"
                                 path |> asmLoadContext.LoadFromAssemblyPath |> ignore)
@@ -195,7 +197,11 @@ module CompilerHost =
 
                 let outputDllName =
                     if options.UseCache then
-                        let hash = Hash.deepSourceHash (rootFilePath |> File.ReadAllText |> Hash.sha256 |> Hash.short) metadata.SourceFiles
+                        let hash =
+                            Hash.deepSourceHash
+                                (rootFilePath |> File.ReadAllText |> Hash.sha256 |> Hash.short)
+                                metadata.SourceFiles
+
                         Path.Combine(options.OutputDir.TrimEnd('\\', '/'), $"{hash}.dll")
                     else
                         $"{Path.GetTempFileName()}.dll"
@@ -208,7 +214,7 @@ module CompilerHost =
 
                 | path ->
 
-                    let refs = metadata.NuGets |> Seq.map (sprintf "-r:%s") |> Seq.toList
+                    let refs = metadata.References |> Seq.map (sprintf "-r:%s") |> Seq.toList
 
                     let absoluteRootFilePath =
                         if Path.IsPathRooted rootFilePath then
@@ -241,14 +247,15 @@ module CompilerHost =
     let getAssembly (options: Options) (script: Script) : Async<CompileOutput> =
 
         let log = options.Logger
+
         async {
             let rootFilePath, scriptDir, outputDir =
                 script |> ensureScriptFile options.OutputDir
-            
+
             log $"Root file path: %s{rootFilePath}"
             log $"Script dir: %s{scriptDir}"
             log $"Output dir: %s{outputDir}"
-                
+
             match script with
             | Inline _ -> Directory.CreateDirectory scriptDir |> ignore
             | _ -> ()
@@ -272,8 +279,11 @@ module CompilerHost =
                                 let metadata =
                                     { ScriptCache.Default with
                                         FilePath = cacheDepsFilePath
-                                        SourceFiles = projOptions.SourceFiles |> Seq.except [rootFilePath] |> Seq.toList }
+                                        SourceFiles =
+                                            projOptions.SourceFiles |> Seq.except [ rootFilePath ] |> Seq.toList }
+
                                 log "Source files:"
+
                                 for sf in projOptions.SourceFiles do
                                     log $"  %s{sf}"
 
@@ -281,25 +291,24 @@ module CompilerHost =
                                     return Ok metadata
                                 else
                                     return
-                                        Ok(
+                                        Ok
                                             { metadata with
-                                                NuGets =
+                                                References =
                                                     projOptions.SourceFiles
-                                                    |> Seq.filter (fun p ->
-                                                        p.Contains("/.packagemanagement/nuget/")
-                                                        || p.Contains("/.paket/load/"))
                                                     |> Seq.collect File.ReadAllLines
                                                     |> Seq.choose (function
                                                         | Utils.ParseRegex """^#r @?"(.*\.dll)"\s?$""" [ dllPath ] ->
-                                                            Some(dllPath)
+                                                            Some dllPath
                                                         | _ -> None)
+                                                    |> Seq.map (function
+                                                        | p when Path.IsPathRooted p -> p
+                                                        | p -> Path.GetFullPath(Path.Combine(scriptDir, p)))
                                                     |> Seq.toList }
-                                        )
-                            | errors -> return Error(errors)
+                            | errors -> return Error errors
                         }
 
                     if File.Exists cacheDepsFilePath then
-                        return Ok (ScriptCache.Load cacheDepsFilePath)
+                        return Ok(ScriptCache.Load cacheDepsFilePath)
                     else
                         return! buildMetadata ()
                 }

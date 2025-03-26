@@ -26,7 +26,8 @@ HELLO: I hereby send the message
 
 * Accessing script members on the host side in a strongly-typed way (please note: if the members are not of expected types they will fail casting causing a runtime exception - there is no magic that could fix it)   
 * Consuming values and functions (including generics)
-* Referencing NuGet packages and other scripts via the [`#r "nuget: ..."` directive](https://docs.microsoft.com/en-us/dotnet/fsharp/tools/fsharp-interactive/#referencing-packages-in-f-interactive)
+* Referencing other scripts and dlls via `#r`
+* Referencing NuGet packages via the [`#r "nuget: ...` directive](https://docs.microsoft.com/en-us/dotnet/fsharp/tools/fsharp-interactive/#referencing-packages-in-f-interactive)
 * Paket support via the `#r "paket: ..."` directive
 * Controlling compilation options
 * Full assembly caching (opt-in via options)

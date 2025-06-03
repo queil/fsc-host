@@ -55,6 +55,24 @@ module private Hash =
 // outputDirectory not really useful as it comes empty on GetProjectOptionsFromScript
 [<DependencyManager>]
 type PaketDependencyManager(outputDirectory: string option, useResultsCache: bool) =
+    let paketLog = Collections.Concurrent.ConcurrentQueue<string>()
+    let log msg = paketLog.Enqueue $"[DEPS] {msg}"
+
+    let mutable logObservable: IDisposable =
+        { new IDisposable with
+            member _.Dispose() = () }
+
+    do
+        Logging.verbose <- true
+        Logging.verboseWarnings <- true
+
+        logObservable <-
+            Paket.Logging.event.Publish
+            |> Observable.subscribe (fun (e: Logging.Trace) -> paketLog.Enqueue $"[PAKET] {e.Text}")
+
+    interface IDisposable with
+        member _.Dispose() : unit = logObservable.Dispose()
+
     member _.Name = "paket"
     member _.Key = "paket"
 
@@ -77,22 +95,19 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
         let workDir =
             Path.Combine(Path.GetTempPath(), ".fsch", "paket", Hash.sha256 scriptDir |> Hash.short)
 
-        let logPath = $"{workDir}/paket.log"
-        let log line = File.AppendAllLines(logPath, [ line ])
-
         try
             let scriptExt = scriptExt[1..]
 
             Directory.CreateDirectory workDir |> ignore
 
-            log "\n----------------------------------------"
-            log $"            PROCESS DEPS               "
+            log "----------------------------------------"
+            log $"            PAKET               "
             log "----------------------------------------"
             log $"SCRIPT NAME: {scriptName}"
             log $"SCRIPT DIR: {scriptDir}"
             log $"WORK DIR: {workDir}"
 
-            match Dependencies.TryLocate(workDir) with
+            match Dependencies.TryLocate workDir with
             | Some df -> File.Delete df.DependenciesFile
             | None -> ()
 
@@ -101,7 +116,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                 let additionalLines = [ "storage: none"; $"framework: {tfm}"; "" ]
                 Dependencies.Init(workDir, sources, additionalLines, (fun () -> ()))
                 log "init OK"
-                Dependencies.Locate(workDir)
+                Dependencies.Locate workDir
 
             log $"DEPS: {deps.DependenciesFile}"
 
@@ -110,7 +125,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
                 let processed =
                     match parsed with
-                    | "github" :: path :: tail when not <| path.Contains(":") -> "github" :: $"{path}:main" :: tail
+                    | "github" :: path :: tail when not <| path.Contains ":" -> "github" :: $"{path}:main" :: tail
                     | s -> s
 
                 processed |> String.concat " "
@@ -131,7 +146,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                 DependenciesFileParser.parseDependenciesFile "tmp" true newLines |> ignore
                 File.AppendAllLines(deps.DependenciesFile, newLines)
                 log "\n........... paket.dependencies ...........\n"
-                log (File.ReadAllText(deps.DependenciesFile))
+                log (File.ReadAllText deps.DependenciesFile)
 
                 log "...\n"
             with _ ->
@@ -139,7 +154,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                 log "Deleted invalid deps file"
                 reraise ()
 
-            deps.Install(false)
+            deps.Install false
 
             let expectedPartialPath = PaketPaths.mainGroupFile tfm scriptExt
 
@@ -148,16 +163,16 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                 |> Seq.filter (fun d -> d.PartialPath = expectedPartialPath)
                 |> Seq.head
 
-            data.Save(DirectoryInfo(workDir))
+            data.Save(DirectoryInfo workDir)
 
             let loadingScriptsFilePath = PaketPaths.loadingScriptsDir workDir tfm scriptExt
 
             log $"LOADING SCRIPTS: {loadingScriptsFilePath}\n"
-            log (File.ReadAllText(loadingScriptsFilePath))
+            log (File.ReadAllText loadingScriptsFilePath)
 
             let roots = [ Path.Combine(workDir, Constants.PaketFilesFolderName) ]
 
-            ResolveDependenciesResult(true, [||], [||], [], [ loadingScriptsFilePath ], roots)
+            ResolveDependenciesResult(true, paketLog.ToArray(), [||], [], [ loadingScriptsFilePath ], roots)
         with e ->
             log $"{e.ToString()}"
-            ResolveDependenciesResult(false, [||], [| "Paket: " + e.Message |], [], [], [])
+            ResolveDependenciesResult(false, paketLog.ToArray(), [| "Paket: " + e.Message |], [], [], [])

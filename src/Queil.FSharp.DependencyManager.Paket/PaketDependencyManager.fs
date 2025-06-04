@@ -3,6 +3,7 @@ namespace Queil.FSharp.DependencyManager.Paket
 open System
 open System.IO
 open Paket
+open System.Collections.Concurrent
 
 [<AttributeUsage(AttributeTargets.Assembly ||| AttributeTargets.Class, AllowMultiple = false)>]
 type DependencyManagerAttribute() =
@@ -21,12 +22,30 @@ type ResolveDependenciesResult
         sourceFiles: string seq,
         roots: string seq
     ) =
+
     member _.Success = success
     member _.StdOut = stdOut
     member _.StdError = stdError
     member _.Resolutions = resolutions
     member _.SourceFiles = sourceFiles
     member _.Roots = roots
+
+type Configuration =
+    { Verbose: bool
+      Logger: (string -> unit) option
+      ResultCache: ConcurrentDictionary<string, ResolveDependenciesResult> }
+
+module Configure =
+    let mutable private data =
+        { Verbose = false
+          Logger = None
+          ResultCache = ConcurrentDictionary<string, ResolveDependenciesResult>() }
+
+    let private lockObj = obj ()
+
+    let update f = lock lockObj (fun () -> data <- f data)
+
+    let get () = data
 
 [<RequireQualifiedAccess>]
 module PaketPaths =
@@ -55,20 +74,21 @@ module private Hash =
 // outputDirectory not really useful as it comes empty on GetProjectOptionsFromScript
 [<DependencyManager>]
 type PaketDependencyManager(outputDirectory: string option, useResultsCache: bool) =
-    let paketLog = Collections.Concurrent.ConcurrentQueue<string>()
-    let log msg = paketLog.Enqueue $"[DEPS] {msg}"
+
+    let config = Configure.get ()
+    let log = config.Logger |> Option.defaultValue ignore
 
     let mutable logObservable: IDisposable =
         { new IDisposable with
             member _.Dispose() = () }
 
     do
-        Logging.verbose <- true
-        Logging.verboseWarnings <- true
+        Logging.verbose <- config.Verbose
+        Logging.verboseWarnings <- config.Verbose
 
         logObservable <-
             Paket.Logging.event.Publish
-            |> Observable.subscribe (fun (e: Logging.Trace) -> paketLog.Enqueue $"[PAKET] {e.Text}")
+            |> Observable.subscribe (fun (e: Logging.Trace) -> log e.Text)
 
     interface IDisposable with
         member _.Dispose() : unit = logObservable.Dispose()
@@ -78,7 +98,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
     member _.HelpMessages: string list = []
 
-    member _.ClearResultsCache = fun () -> ()
+    member _.ClearResultsCache = fun () -> config.ResultCache.Clear()
 
     /// This method gets called by fsch twice. First for GetProjectOptionsFromScript, then for the actual compile
     member _.ResolveDependencies
@@ -92,87 +112,95 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
             timeout: int
         ) : obj =
 
-        let workDir =
-            Path.Combine(Path.GetTempPath(), ".fsch", "paket", Hash.sha256 scriptDir |> Hash.short)
 
-        try
-            let scriptExt = scriptExt[1..]
+        let getCacheKey (packageManagerTextLines: (string * string) seq) (tfm: string) (rid: string) =
+            let content =
+                String.concat
+                    "|"
+                    [| yield! packageManagerTextLines |> Seq.map (fun (a, b) -> $"{a}{b}")
+                       tfm
+                       rid |]
 
-            Directory.CreateDirectory workDir |> ignore
+            use sha = System.Security.Cryptography.SHA256.Create()
+            let hash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(content))
+            Convert.ToHexString hash
 
-            log "----------------------------------------"
-            log $"            PAKET               "
-            log "----------------------------------------"
-            log $"SCRIPT NAME: {scriptName}"
-            log $"SCRIPT DIR: {scriptDir}"
-            log $"WORK DIR: {workDir}"
+        let resolve () =
 
-            match Dependencies.TryLocate workDir with
-            | Some df -> File.Delete df.DependenciesFile
-            | None -> ()
-
-            let deps =
-                let sources = [ PackageSources.DefaultNuGetV3Source ]
-                let additionalLines = [ "storage: none"; $"framework: {tfm}"; "" ]
-                Dependencies.Init(workDir, sources, additionalLines, (fun () -> ()))
-                log "init OK"
-                Dependencies.Locate workDir
-
-            log $"DEPS: {deps.DependenciesFile}"
-
-            let preProcess (line: string) =
-                let parsed = DependenciesFileParser.parseDependencyLine line |> Seq.toList
-
-                let processed =
-                    match parsed with
-                    | "github" :: path :: tail when not <| path.Contains ":" -> "github" :: $"{path}:main" :: tail
-                    | s -> s
-
-                processed |> String.concat " "
+            let workDir =
+                Path.Combine(Path.GetTempPath(), ".fsch", "paket", Hash.sha256 scriptDir |> Hash.short)
 
             try
-                let df = deps.GetDependenciesFile()
+                let scriptExt = scriptExt[1..]
 
-                let newLines =
-                    packageManagerTextLines
-                    |> Seq.map (fun (_, s) -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
-                    |> Seq.collect id
-                    |> Seq.map _.Trim()
-                    |> Seq.map preProcess
-                    |> Seq.distinct
-                    |> Seq.filter (fun s -> df.Lines |> Seq.contains s |> not)
-                    |> Seq.toArray
+                Directory.CreateDirectory workDir |> ignore
 
-                DependenciesFileParser.parseDependenciesFile "tmp" true newLines |> ignore
-                File.AppendAllLines(deps.DependenciesFile, newLines)
-                log "\n........... paket.dependencies ...........\n"
-                log (File.ReadAllText deps.DependenciesFile)
+                log $"Queil.FSharp.DependencyManager.Paket starting"
+                log $"SCRIPT NAME: {scriptName}"
+                log $"SCRIPT DIR: {scriptDir}"
+                log $"WORK DIR: {workDir}"
 
-                log "...\n"
-            with _ ->
-                File.Delete deps.DependenciesFile
-                log "Deleted invalid deps file"
-                reraise ()
+                match Dependencies.TryLocate workDir with
+                | Some df -> File.Delete df.DependenciesFile
+                | None -> ()
 
-            deps.Install false
+                let deps =
+                    let sources = [ PackageSources.DefaultNuGetV3Source ]
+                    let additionalLines = [ "storage: none"; $"framework: {tfm}"; "" ]
+                    Dependencies.Init(workDir, sources, additionalLines, (fun () -> ()))
+                    Dependencies.Locate workDir
 
-            let expectedPartialPath = PaketPaths.mainGroupFile tfm scriptExt
+                let preProcess (line: string) =
+                    let parsed = DependenciesFileParser.parseDependencyLine line |> Seq.toList
 
-            let data =
-                deps.GenerateLoadScriptData deps.DependenciesFile [ Domain.MainGroup ] [ tfm ] [ scriptExt ]
-                |> Seq.filter (fun d -> d.PartialPath = expectedPartialPath)
-                |> Seq.head
+                    let processed =
+                        match parsed with
+                        | "github" :: path :: tail when not <| path.Contains ":" -> "github" :: $"{path}:main" :: tail
+                        | s -> s
 
-            data.Save(DirectoryInfo workDir)
+                    processed |> String.concat " "
 
-            let loadingScriptsFilePath = PaketPaths.loadingScriptsDir workDir tfm scriptExt
+                try
+                    let df = deps.GetDependenciesFile()
 
-            log $"LOADING SCRIPTS: {loadingScriptsFilePath}\n"
-            log (File.ReadAllText loadingScriptsFilePath)
+                    let newLines =
+                        packageManagerTextLines
+                        |> Seq.map (fun (_, s) -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
+                        |> Seq.collect id
+                        |> Seq.map _.Trim()
+                        |> Seq.map preProcess
+                        |> Seq.distinct
+                        |> Seq.filter (fun s -> df.Lines |> Seq.contains s |> not)
+                        |> Seq.toArray
 
-            let roots = [ Path.Combine(workDir, Constants.PaketFilesFolderName) ]
+                    DependenciesFileParser.parseDependenciesFile "tmp" true newLines |> ignore
+                    File.AppendAllLines(deps.DependenciesFile, newLines)
+                with _ ->
+                    File.Delete deps.DependenciesFile
+                    log "Deleted invalid deps file"
+                    reraise ()
 
-            ResolveDependenciesResult(true, paketLog.ToArray(), [||], [], [ loadingScriptsFilePath ], roots)
-        with e ->
-            log $"{e.ToString()}"
-            ResolveDependenciesResult(false, paketLog.ToArray(), [| "Paket: " + e.Message |], [], [], [])
+                deps.Install false
+
+                let expectedPartialPath = PaketPaths.mainGroupFile tfm scriptExt
+
+                let data =
+                    deps.GenerateLoadScriptData deps.DependenciesFile [ Domain.MainGroup ] [ tfm ] [ scriptExt ]
+                    |> Seq.filter (fun d -> d.PartialPath = expectedPartialPath)
+                    |> Seq.head
+
+                data.Save(DirectoryInfo workDir)
+
+                let loadingScriptsFilePath = PaketPaths.loadingScriptsDir workDir tfm scriptExt
+
+                let roots = [ Path.Combine(workDir, Constants.PaketFilesFolderName) ]
+
+                ResolveDependenciesResult(true, [||], [||], [], [ loadingScriptsFilePath ], roots)
+            with e ->
+                log $"{e.ToString()}"
+                ResolveDependenciesResult(false, [||], [| "Paket: " + e.Message |], [], [], [])
+
+        let cacheKey = getCacheKey packageManagerTextLines tfm runtimeIdentifier
+        log cacheKey
+
+        config.ResultCache.GetOrAdd(cacheKey, fun _ -> resolve ())

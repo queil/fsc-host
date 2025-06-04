@@ -104,7 +104,8 @@ type Options =
     { Compiler: CompilerOptions
       UseCache: bool
       OutputDir: string
-      Logger: string -> unit
+      Verbose: bool
+      Logger: (string -> unit) option
       LogListTypes: bool
       AutoLoadNugetReferences: bool }
 
@@ -112,7 +113,8 @@ type Options =
         { Compiler = CompilerOptions.Default
           UseCache = false
           OutputDir = Path.Combine(Path.GetTempPath(), Const.FschDir)
-          Logger = ignore
+          Verbose = false
+          Logger = None
           LogListTypes = false
           AutoLoadNugetReferences = true }
 
@@ -177,8 +179,7 @@ module CompilerHost =
             scriptFilePath, scriptDir, cacheDir
 
         let compileScript (rootFilePath: string) (metadata: ScriptCache) (options: Options) : Async<CompileOutput> =
-
-            let log = options.Logger
+            let log = options.Logger |> Option.defaultValue ignore
             let asmLoadContext = AssemblyLoadContext("script", true)
 
             let getCompileOutput dllPath =
@@ -243,10 +244,15 @@ module CompilerHost =
             }
 
     open Internals
+    open Queil.FSharp.DependencyManager.Paket
 
     let getAssembly (options: Options) (script: Script) : Async<CompileOutput> =
+        Configure.update (fun c ->
+            { c with
+                Verbose = options.Verbose
+                Logger = options.Logger })
 
-        let log = options.Logger
+        let log = options.Logger |> Option.defaultValue ignore
 
         async {
             let rootFilePath, scriptDir, outputDir =

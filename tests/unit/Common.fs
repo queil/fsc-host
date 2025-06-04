@@ -7,7 +7,7 @@ module Common =
     let options =
         { Options.Default with
             UseCache = true
-            Logger = printfn "%s" }
+            Logger = Some(printfn "%s") }
 
     let invoke<'a> (func: unit -> 'a) =
         try

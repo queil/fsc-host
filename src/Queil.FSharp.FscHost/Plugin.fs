@@ -75,7 +75,7 @@ module Plugin =
         member x.Log(state: CommonBuilder, logFun: string -> unit) =
             let options =
                 { state.State.options with
-                    Logger = logFun }
+                    Logger = Some logFun }
 
             CommonBuilder { state.State with options = options }
 

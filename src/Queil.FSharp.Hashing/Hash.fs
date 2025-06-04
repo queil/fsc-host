@@ -1,4 +1,4 @@
-﻿namespace Queil.FSharp.FscHost.Hashing
+﻿namespace Queil.FSharp.Hashing
 
 open System
 open System.IO

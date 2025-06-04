@@ -1,6 +1,6 @@
 namespace Queil.FSharp.DependencyManager.Paket
 
-open Queil.FSharp.FscHost.Hashing
+open Queil.FSharp.Hashing
 open System
 open System.IO
 open Paket

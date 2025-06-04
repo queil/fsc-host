@@ -1,6 +1,6 @@
 namespace Queil.FSharp.FscHost
 
-open Queil.FSharp.FscHost.Hashing
+open Queil.FSharp.Hashing
 open System.Runtime.Loader
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Diagnostics

@@ -221,6 +221,7 @@ module CompilerHost =
     let getAssembly (options: Options) (script: Script) : Async<CompileOutput> =
         Configure.update (fun c ->
             { c with
+                OutputRootDir = options.OutputDir
                 Verbose = options.Verbose
                 Logger = options.Logger })
 
@@ -232,7 +233,7 @@ module CompilerHost =
 
             log $"Root file path: %s{rootFilePath}"
             log $"Script dir: %s{scriptDir}"
-            log $"Output dir: %s{outputDir}"
+            log $"Cache dir: %s{outputDir}"
 
             match script with
             | Inline _ -> Directory.CreateDirectory scriptDir |> ignore

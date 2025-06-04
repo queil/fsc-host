@@ -36,38 +36,44 @@ type Configuration =
     { Verbose: bool
       Logger: (string -> unit) option
       ResultCache: ConcurrentDictionary<string, ResolveDependenciesResult>
-      PaketTmpDir: string
-      ResultCacheDir: string }
+      OutputRootDir: string }
+
+    member x.PaketTmpDir() = Path.Combine(x.OutputRootDir, "paket")
+
+    member x.ResultCacheDir() =
+        Path.Combine(x.PaketTmpDir(), "results-cache")
 
 module Configure =
     let mutable private data =
-        let paketTmp = Path.Combine(Path.GetTempPath(), ".fsch", "paket")
 
-        let cacheResultsDir = Path.Combine(paketTmp, "results-cache")
-        Directory.CreateDirectory cacheResultsDir |> ignore
-        let resultCache = ConcurrentDictionary<string, ResolveDependenciesResult>()
-
-        Directory.EnumerateFiles cacheResultsDir
-        |> Seq.map (fun f -> Path.GetFileNameWithoutExtension f, File.ReadAllText f)
-        |> Seq.iter (fun (key, content) ->
-
-            let entry = JsonSerializer.Deserialize<ResolveDependenciesResult> content
-
-            match entry with
-            | null -> ()
-            | validEntry -> resultCache.TryAdd(key, validEntry) |> ignore)
+        let outputRootDir = Path.Combine(Path.GetTempPath(), ".fsch")
 
         { Verbose = false
           Logger = None
-          PaketTmpDir = paketTmp
-          ResultCacheDir = cacheResultsDir
-          ResultCache = resultCache }
+          ResultCache = ConcurrentDictionary<string, ResolveDependenciesResult>()
+          OutputRootDir = outputRootDir }
+
 
     let private lockObj = obj ()
 
     let update f = lock lockObj (fun () -> data <- f data)
 
-    let get () = data
+    let render =
+        lazy
+            (Directory.CreateDirectory(data.ResultCacheDir()) |> ignore
+
+             Directory.EnumerateFiles(data.ResultCacheDir())
+             |> Seq.map (fun f -> Path.GetFileNameWithoutExtension f, File.ReadAllText f)
+             |> Seq.iter (fun (key, content) ->
+
+                 let entry = JsonSerializer.Deserialize<ResolveDependenciesResult> content
+
+                 match entry with
+                 | null -> ()
+                 | validEntry -> data.ResultCache.TryAdd(key, validEntry) |> ignore)
+
+             data)
+
 
 [<RequireQualifiedAccess>]
 module PaketPaths =
@@ -81,7 +87,7 @@ module PaketPaths =
 [<DependencyManager>]
 type PaketDependencyManager(outputDirectory: string option, useResultsCache: bool) =
 
-    let config = Configure.get ()
+    let config = Configure.render.Value
     let log = config.Logger |> Option.defaultValue ignore
 
     let mutable logObservable: IDisposable =
@@ -122,108 +128,110 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
             let content =
                 String.concat
                     "|"
-                    [| yield! packageManagerTextLines |> Seq.map (fun (a, b) -> $"{a}{b}")
+                    [| yield! packageManagerTextLines |> Seq.map (fun (a, b) -> $"{a.Trim()}{b.Trim()}")
                        tfm
                        rid |]
 
             Hash.sha256 content
 
-        let workDir = Path.Combine(config.PaketTmpDir, Hash.sha256 scriptDir |> Hash.short)
+        let workDir =
+            Path.Combine(config.PaketTmpDir(), Hash.sha256 scriptDir |> Hash.short)
+
         let mutable isCached = true
         let cacheKey = getCacheKey packageManagerTextLines tfm runtimeIdentifier
 
         let resolve () =
+            isCached <- false
+            log $"Resolving dependencies (cache key: {cacheKey})"
+            let scriptExt = scriptExt[1..]
+
+            Directory.CreateDirectory workDir |> ignore
+
+            log $"SCRIPT NAME: {scriptName}"
+            log $"SCRIPT DIR: {scriptDir}"
+            log $"WORK DIR: {workDir}"
+
+            match Dependencies.TryLocate workDir with
+            | Some df -> File.Delete df.DependenciesFile
+            | None -> ()
+
+            let deps =
+                let sources = [ PackageSources.DefaultNuGetV3Source ]
+                let additionalLines = [ "storage: none"; $"framework: {tfm}"; "" ]
+                Dependencies.Init(workDir, sources, additionalLines, (fun () -> ()))
+                Dependencies.Locate workDir
+
+            let preProcess (line: string) =
+                let parsed = DependenciesFileParser.parseDependencyLine line |> Seq.toList
+
+                let processed =
+                    match parsed with
+                    | "github" :: path :: tail when not <| path.Contains ":" -> "github" :: $"{path}:main" :: tail
+                    | s -> s
+
+                processed |> String.concat " "
+
             try
-                isCached <- false
-                log $"Resolving dependencies (cache key: {cacheKey})"
-                let scriptExt = scriptExt[1..]
+                let df = deps.GetDependenciesFile()
 
-                Directory.CreateDirectory workDir |> ignore
+                let newLines =
+                    packageManagerTextLines
+                    |> Seq.map (fun (_, s) -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
+                    |> Seq.collect id
+                    |> Seq.map _.Trim()
+                    |> Seq.map preProcess
+                    |> Seq.distinct
+                    |> Seq.filter (fun s -> df.Lines |> Seq.contains s |> not)
+                    |> Seq.toArray
 
-                log $"Queil.FSharp.DependencyManager.Paket starting"
-                log $"SCRIPT NAME: {scriptName}"
-                log $"SCRIPT DIR: {scriptDir}"
-                log $"WORK DIR: {workDir}"
+                DependenciesFileParser.parseDependenciesFile "tmp" true newLines |> ignore
+                File.AppendAllLines(deps.DependenciesFile, newLines)
+            with _ ->
+                File.Delete deps.DependenciesFile
+                log "Deleted invalid deps file"
+                reraise ()
 
-                match Dependencies.TryLocate workDir with
-                | Some df -> File.Delete df.DependenciesFile
-                | None -> ()
+            deps.Install false
 
-                let deps =
-                    let sources = [ PackageSources.DefaultNuGetV3Source ]
-                    let additionalLines = [ "storage: none"; $"framework: {tfm}"; "" ]
-                    Dependencies.Init(workDir, sources, additionalLines, (fun () -> ()))
-                    Dependencies.Locate workDir
+            let expectedPartialPath = PaketPaths.mainGroupFile tfm scriptExt
 
-                let preProcess (line: string) =
-                    let parsed = DependenciesFileParser.parseDependencyLine line |> Seq.toList
+            let data =
+                deps.GenerateLoadScriptData deps.DependenciesFile [ Domain.MainGroup ] [ tfm ] [ scriptExt ]
+                |> Seq.filter (fun d -> d.PartialPath = expectedPartialPath)
+                |> Seq.head
 
-                    let processed =
-                        match parsed with
-                        | "github" :: path :: tail when not <| path.Contains ":" -> "github" :: $"{path}:main" :: tail
-                        | s -> s
+            data.Save(DirectoryInfo workDir)
 
-                    processed |> String.concat " "
+            let loadingScriptsFilePath = PaketPaths.loadingScriptsDir workDir tfm scriptExt
 
-                try
-                    let df = deps.GetDependenciesFile()
+            let roots = [ Path.Combine(workDir, Constants.PaketFilesFolderName) ]
 
-                    let newLines =
-                        packageManagerTextLines
-                        |> Seq.map (fun (_, s) -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
-                        |> Seq.collect id
-                        |> Seq.map _.Trim()
-                        |> Seq.map preProcess
-                        |> Seq.distinct
-                        |> Seq.filter (fun s -> df.Lines |> Seq.contains s |> not)
-                        |> Seq.toArray
+            ResolveDependenciesResult(true, [||], [||], [], [ loadingScriptsFilePath ], roots)
 
-                    DependenciesFileParser.parseDependenciesFile "tmp" true newLines |> ignore
-                    File.AppendAllLines(deps.DependenciesFile, newLines)
-                with _ ->
-                    File.Delete deps.DependenciesFile
-                    log "Deleted invalid deps file"
-                    reraise ()
+        try
 
-                deps.Install false
+            let resolveResult =
+                if not useResultsCache then
+                    resolve ()
+                else
+                    config.ResultCache.GetOrAdd(
+                        cacheKey,
+                        fun _ ->
+                            let result = resolve ()
 
-                let expectedPartialPath = PaketPaths.mainGroupFile tfm scriptExt
+                            if result.Success then
+                                let serialized = System.Text.Json.JsonSerializer.Serialize result
+                                let resultCachePath = Path.Combine(config.ResultCacheDir(), $"{cacheKey}.json")
+                                File.WriteAllText(resultCachePath, serialized)
+                                log $"Saving resolve result to: {resultCachePath}"
 
-                let data =
-                    deps.GenerateLoadScriptData deps.DependenciesFile [ Domain.MainGroup ] [ tfm ] [ scriptExt ]
-                    |> Seq.filter (fun d -> d.PartialPath = expectedPartialPath)
-                    |> Seq.head
+                            result
+                    )
 
-                data.Save(DirectoryInfo workDir)
+            if isCached then
+                log $"Resolve results cache hit: {cacheKey}"
 
-                let loadingScriptsFilePath = PaketPaths.loadingScriptsDir workDir tfm scriptExt
-
-                let roots = [ Path.Combine(workDir, Constants.PaketFilesFolderName) ]
-
-                ResolveDependenciesResult(true, [||], [||], [], [ loadingScriptsFilePath ], roots)
-            with e ->
-                log $"{e.ToString()}"
-                ResolveDependenciesResult(false, [||], [| "Paket: " + e.Message |], [], [], [])
-
-        let resolveResult =
-            if not useResultsCache then
-                resolve ()
-            else
-                config.ResultCache.GetOrAdd(
-                    cacheKey,
-                    fun _ ->
-                        let result = resolve ()
-
-                        if result.Success then
-                            let serialized = System.Text.Json.JsonSerializer.Serialize result
-                            let resultCachePath = Path.Combine(config.ResultCacheDir, $"{cacheKey}.json")
-                            File.WriteAllText(resultCachePath, serialized)
-                            log $"Saving resolve result to: {resultCachePath}"
-
-                        result
-                )
-
-        if isCached then
-            log $"Resolve results cache hit: {cacheKey}"
-
-        resolveResult
+            resolveResult
+        with e ->
+            log $"{e.ToString()}"
+            ResolveDependenciesResult(false, [||], [| "Paket: " + e.Message |], [], [], [])

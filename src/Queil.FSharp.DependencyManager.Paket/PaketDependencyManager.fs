@@ -4,6 +4,7 @@ open System
 open System.IO
 open Paket
 open System.Collections.Concurrent
+open System.Text.Json
 
 [<AttributeUsage(AttributeTargets.Assembly ||| AttributeTargets.Class, AllowMultiple = false)>]
 type DependencyManagerAttribute() =
@@ -33,13 +34,35 @@ type ResolveDependenciesResult
 type Configuration =
     { Verbose: bool
       Logger: (string -> unit) option
-      ResultCache: ConcurrentDictionary<string, ResolveDependenciesResult> }
+      ResultCache: ConcurrentDictionary<string, ResolveDependenciesResult>
+      PaketTmpDir: string
+      ResultCacheDir: string }
 
 module Configure =
     let mutable private data =
+
+        let paketTmp = Path.Combine(Path.GetTempPath(), ".fsch", "paket")
+
+        let cacheResultsDir = Path.Combine(paketTmp, "results-cache")
+        Directory.CreateDirectory cacheResultsDir |> ignore
+        let resultCache = ConcurrentDictionary<string, ResolveDependenciesResult>()
+
+
+        Directory.EnumerateFiles cacheResultsDir
+        |> Seq.map (fun f -> Path.GetFileNameWithoutExtension f, File.ReadAllText f)
+        |> Seq.iter (fun (key, content) ->
+
+            let entry = JsonSerializer.Deserialize<ResolveDependenciesResult> content 
+            match entry with
+            | null -> ()
+            | validEntry -> resultCache.TryAdd(key, validEntry) |> ignore
+           )
+
         { Verbose = false
           Logger = None
-          ResultCache = ConcurrentDictionary<string, ResolveDependenciesResult>() }
+          PaketTmpDir = paketTmp
+          ResultCacheDir = cacheResultsDir
+          ResultCache = resultCache }
 
     let private lockObj = obj ()
 
@@ -125,11 +148,11 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
             let hash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(content))
             Convert.ToHexString hash
 
+        let workDir = Path.Combine(config.PaketTmpDir, Hash.sha256 scriptDir |> Hash.short)
+
+
+
         let resolve () =
-
-            let workDir =
-                Path.Combine(Path.GetTempPath(), ".fsch", "paket", Hash.sha256 scriptDir |> Hash.short)
-
             try
                 let scriptExt = scriptExt[1..]
 
@@ -203,4 +226,17 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
         let cacheKey = getCacheKey packageManagerTextLines tfm runtimeIdentifier
         log cacheKey
 
-        config.ResultCache.GetOrAdd(cacheKey, fun _ -> resolve ())
+        if not useResultsCache then
+            resolve ()
+        else
+            config.ResultCache.GetOrAdd(
+                cacheKey,
+                fun _ ->
+                    let result = resolve ()
+
+                    if result.Success then
+                        let serialized = System.Text.Json.JsonSerializer.Serialize result
+                        File.WriteAllText(Path.Combine(config.ResultCacheDir, $"{cacheKey}.json"), serialized)
+
+                    result
+            )

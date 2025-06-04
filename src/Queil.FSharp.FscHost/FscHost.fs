@@ -150,7 +150,7 @@ module CompilerHost =
             short combinedHash
 
     module private Internals =
-        let checker = FSharpChecker.Create()
+        let checker = FSharpChecker.Create(parallelReferenceResolution = true)
 
         let ensureScriptFile (outputRootDir: string) (script: Script) =
             let getScriptFilePath =

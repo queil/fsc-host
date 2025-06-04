@@ -28,10 +28,10 @@ module Plugin =
 
     type Plugin<'a>(state: PluginOptions) =
 
-        member x.State = state
+        member _.State = state
         member x.Yield _ = x
 
-        member x.Run(state: CommonBuilder) =
+        member _.Run(state: CommonBuilder) =
             async {
                 let script =
                     match state.State.script with
@@ -54,7 +54,7 @@ module Plugin =
 
         /// Controls script caching behaviour. Default: caching is off
         [<CustomOperation("cache")>]
-        member x.Cache(state: CommonBuilder, useCache: bool) =
+        member _.Cache(state: CommonBuilder, useCache: bool) =
             let options =
                 { state.State.options with
                     UseCache = useCache }
@@ -63,7 +63,7 @@ module Plugin =
 
         /// Overrides the default root output dir path. Default: /tmp/.fsch
         [<CustomOperation("output_dir")>]
-        member x.OutputDir(state: CommonBuilder, outputDir: string) =
+        member _.OutputDir(state: CommonBuilder, outputDir: string) =
             let options =
                 { state.State.options with
                     OutputDir = outputDir }
@@ -72,7 +72,7 @@ module Plugin =
 
         /// Enables a custom logging function
         [<CustomOperation("log")>]
-        member x.Log(state: CommonBuilder, logFun: string -> unit) =
+        member _.Log(state: CommonBuilder, logFun: string -> unit) =
             let options =
                 { state.State.options with
                     Logger = Some logFun }
@@ -81,12 +81,12 @@ module Plugin =
 
         /// Defines the name of a binding to extract. Default: plugin
         [<CustomOperation("binding")>]
-        member x.Binding(state: CommonBuilder, name: string) =
+        member _.Binding(state: CommonBuilder, name: string) =
             CommonBuilder { state.State with bindingName = name }
 
         /// Enables customization of a subset of compiler options
         [<CustomOperation("compiler")>]
-        member x.Compiler(state: CommonBuilder, configure: CompilerOptions -> CompilerOptions) =
+        member _.Compiler(state: CommonBuilder, configure: CompilerOptions -> CompilerOptions) =
             let compiler = configure state.State.options.Compiler
 
             let options =
@@ -97,17 +97,17 @@ module Plugin =
 
         /// The directory plugin gets loaded from. Default: plugins/default
         [<CustomOperation("dir")>]
-        member x.Dir(state: FileBuilder, dir: string) =
+        member _.Dir(state: FileBuilder, dir: string) =
             FileBuilder { state.State with dir = dir }
 
         /// Sets plugin script file name. Default: plugin.fsx
         [<CustomOperation("file")>]
-        member x.File(state: CommonBuilder, file: string) =
+        member _.File(state: CommonBuilder, file: string) =
             FileBuilder({ state.State with script = File file })
 
         /// Defines the body of a script to compile
         [<CustomOperation("body")>]
-        member x.Body(state: Plugin<'a>, script: string) =
+        member _.Body(state: Plugin<'a>, script: string) =
             BodyBuilder
                 { state.State with
                     script = Inline script }
@@ -116,7 +116,7 @@ module Plugin =
         /// It expects ./plugins/default/plugin.fsx with 'let plugin = ... ' binding matching the
         /// specified plugin type.
         [<CustomOperation("load")>]
-        member x.Load(state: Plugin<'a>) = FileBuilder state.State
+        member _.Load(state: Plugin<'a>) = FileBuilder state.State
 
     /// Compiles an F# script either defined by 'body' or 'load'
     /// If multiple bindings are found it extracts the value of the least nested one.

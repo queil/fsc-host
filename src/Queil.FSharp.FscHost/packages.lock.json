@@ -945,8 +945,15 @@
       "queil.fsharp.dependencymanager.paket": {
         "type": "Project",
         "dependencies": {
-          "FSharp.Core": "[8.0.400, 8.0.400]",
-          "Paket.Core": "[9.0.2, 9.0.2]"
+          "FSharp.Core": "[8.0.403, 8.0.403]",
+          "Paket.Core": "[9.0.2, 9.0.2]",
+          "Queil.FSharp.Hashing": "[1.0.0, )"
+        }
+      },
+      "queil.fsharp.hashing": {
+        "type": "Project",
+        "dependencies": {
+          "FSharp.Core": "[8.0.403, 8.0.403]"
         }
       }
     },
@@ -1894,8 +1901,15 @@
       "queil.fsharp.dependencymanager.paket": {
         "type": "Project",
         "dependencies": {
-          "FSharp.Core": "[9.0.201, 9.0.201]",
-          "Paket.Core": "[9.0.2, 9.0.2]"
+          "FSharp.Core": "[9.0.300, 9.0.300]",
+          "Paket.Core": "[9.0.2, 9.0.2]",
+          "Queil.FSharp.Hashing": "[1.0.0, )"
+        }
+      },
+      "queil.fsharp.hashing": {
+        "type": "Project",
+        "dependencies": {
+          "FSharp.Core": "[9.0.300, 9.0.300]"
         }
       }
     }

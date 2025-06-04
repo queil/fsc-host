@@ -1,5 +1,6 @@
 namespace Queil.FSharp.DependencyManager.Paket
 
+open Queil.FSharp.FscHost.Hashing
 open System
 open System.IO
 open Paket
@@ -75,22 +76,6 @@ module PaketPaths =
 
     let internal loadingScriptsDir (dir: string) (tfm: string) (ext: string) =
         Path.Combine(dir, Constants.PaketFolderName, "load", mainGroupFile tfm ext)
-
-[<RequireQualifiedAccess>]
-module private Hash =
-    open System.Security.Cryptography
-    open System.Text
-
-    let sha256 (s: string) =
-        use sha256 = SHA256.Create()
-
-        s
-        |> Encoding.UTF8.GetBytes
-        |> sha256.ComputeHash
-        |> BitConverter.ToString
-        |> _.Replace("-", "")
-
-    let short (s: string) = s[0..10].ToLowerInvariant()
 
 // outputDirectory not really useful as it comes empty on GetProjectOptionsFromScript
 [<DependencyManager>]

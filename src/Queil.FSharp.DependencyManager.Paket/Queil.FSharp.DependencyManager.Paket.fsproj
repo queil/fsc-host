@@ -7,16 +7,19 @@
     <NoWarn>NU1608</NoWarn>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Queil.FSharp.Hashing\Queil.FSharp.Hashing.fsproj" />
+  </ItemGroup>
+
   <ItemGroup Condition=" '$(TargetFramework)' == 'net8.0' ">
     <PackageReference Include="Paket.Core" Version="[9.0.2]" />
-    <PackageReference Update="FSharp.Core" Version="[8.0.400]" />
+    <PackageReference Update="FSharp.Core" Version="[8.0.403]" />
   </ItemGroup>
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'net9.0' ">
     <PackageReference Include="Paket.Core" Version="[9.0.2]" />
-    <PackageReference Update="FSharp.Core" Version="[9.0.201]" />
+    <PackageReference Update="FSharp.Core" Version="[9.0.300]" />
   </ItemGroup>
-
 
   <ItemGroup>
     <Compile Include="PaketDependencyManager.fs" />

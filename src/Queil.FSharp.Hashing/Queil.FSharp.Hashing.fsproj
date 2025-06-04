@@ -3,8 +3,8 @@
   <PropertyGroup>
     <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
     <Authors>queil</Authors>
-    <Description>Extend your F# apps with F# scripts</Description>
-    <Copyright>2021 - 2025 © queil</Copyright>
+    <Description>Common hashing logic</Description>
+    <Copyright>2025 © queil</Copyright>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <RepositoryUrl>https://github.com/queil/fsc-host</RepositoryUrl>
     <FsDocsSourceRepository>https://github.com/queil/fsc-host/tree/main</FsDocsSourceRepository>
@@ -16,26 +16,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Errors.fs" />
-    <Compile Include="Reflection.fs" />
-    <Compile Include="Utils.fs" />
-    <Compile Include="FscHost.fs" />
-    <Compile Include="Plugin.fs" />
+    <Compile Include="Hash.fs" />
   </ItemGroup>
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'net8.0' ">
-    <PackageReference Include="FSharp.Compiler.Service" Version="[43.8.403]" />
     <PackageReference Update="FSharp.Core" Version="[8.0.403]" />
   </ItemGroup>
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'net9.0' ">
-    <PackageReference Include="FSharp.Compiler.Service" Version="[43.9.300]" />
     <PackageReference Update="FSharp.Core" Version="[9.0.300]" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\Queil.FSharp.Hashing\Queil.FSharp.Hashing.fsproj" />
-    <ProjectReference Include="..\Queil.FSharp.DependencyManager.Paket\Queil.FSharp.DependencyManager.Paket.fsproj" />
-  </ItemGroup>
-  
 </Project>

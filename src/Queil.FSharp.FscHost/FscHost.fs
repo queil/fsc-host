@@ -1,5 +1,6 @@
 namespace Queil.FSharp.FscHost
 
+open Queil.FSharp.FscHost.Hashing
 open System.Runtime.Loader
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Diagnostics
@@ -7,8 +8,6 @@ open FSharp.Compiler.Text
 open System
 open System.IO
 open System.Reflection
-open System.Text
-open System.Security.Cryptography
 
 [<RequireQualifiedAccess>]
 module private Const =
@@ -121,33 +120,6 @@ type Options =
 [<RequireQualifiedAccess>]
 module CompilerHost =
     open Errors
-
-    [<RequireQualifiedAccess>]
-    module private Hash =
-        let sha256 (s: string) =
-            use sha256 = SHA256.Create()
-
-            s
-            |> Encoding.UTF8.GetBytes
-            |> sha256.ComputeHash
-            |> BitConverter.ToString
-            |> _.Replace("-", "")
-
-        let short (s: string) = s[0..10].ToLowerInvariant()
-
-        let deepSourceHash rootContentHash sourceFiles =
-
-            let fileHash filePath = File.ReadAllText filePath |> sha256
-
-            let combinedHash =
-                sourceFiles
-                |> Seq.map fileHash
-                |> Seq.sort
-                |> Seq.fold (fun a b -> a + b) String.Empty
-                |> (+) rootContentHash
-                |> sha256
-
-            short combinedHash
 
     module private Internals =
         let checker = FSharpChecker.Create(parallelReferenceResolution = true)

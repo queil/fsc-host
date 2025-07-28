@@ -4,11 +4,11 @@
     "net8.0": {
       "FSharp.Compiler.Service": {
         "type": "Direct",
-        "requested": "[43.8.401, 43.8.401]",
-        "resolved": "43.8.401",
-        "contentHash": "/ifTdvXWx1v6TFoZjkdr0pNOgyfzgFam/KWrkwyrtE9aeuriejtn7dPd6aljELR2L4SCwMHTOorp3VXIyc6EZg==",
+        "requested": "[43.8.403, 43.8.403]",
+        "resolved": "43.8.403",
+        "contentHash": "HE5ezcNSK3k/yo7SXhFO+fk9+rRUp1RGTHWIrU2Fg5wuZ4DGs6jnpnNjXrBnsaCbAfxM8NapTyxLhUiBfPewpQ==",
         "dependencies": {
-          "FSharp.Core": "[8.0.401]",
+          "FSharp.Core": "[8.0.403]",
           "System.Buffers": "4.5.1",
           "System.Collections.Immutable": "8.0.0",
           "System.Diagnostics.DiagnosticSource": "8.0.0",
@@ -20,9 +20,9 @@
       },
       "FSharp.Core": {
         "type": "Direct",
-        "requested": "[8.0.401, 8.0.401]",
-        "resolved": "8.0.401",
-        "contentHash": "pvmquLrs82m8WqWB49Gj+hsmnWURkUbc++pJ0P2NdrEv1ZVVrhDNjSiFNP4wW4HiTowwaRhjiBc5IKNV35Vf/A=="
+        "requested": "[8.0.403, 8.0.403]",
+        "resolved": "8.0.403",
+        "contentHash": "t1Pvv2++3zMQKKNuiQc1Lz4TCdaBajgG4mLhOE8AoFzborHQ/JbjIaJr6Mrq8m2z15KLu4r6Qz7E3oeACpljTg=="
       },
       "Chessie": {
         "type": "Transitive",
@@ -945,19 +945,26 @@
       "queil.fsharp.dependencymanager.paket": {
         "type": "Project",
         "dependencies": {
-          "FSharp.Core": "[8.0.400, 8.0.400]",
-          "Paket.Core": "[9.0.2, 9.0.2]"
+          "FSharp.Core": "[8.0.403, 8.0.403]",
+          "Paket.Core": "[9.0.2, 9.0.2]",
+          "Queil.FSharp.Hashing": "[1.0.0, )"
+        }
+      },
+      "queil.fsharp.hashing": {
+        "type": "Project",
+        "dependencies": {
+          "FSharp.Core": "[8.0.403, 8.0.403]"
         }
       }
     },
     "net9.0": {
       "FSharp.Compiler.Service": {
         "type": "Direct",
-        "requested": "[43.9.201, 43.9.201]",
-        "resolved": "43.9.201",
-        "contentHash": "9aiiJqQykETSSKwwWnItUXTYPsNWNHTIz8vNR0J1vVZXT4CcVQUGebiXZpJXv01UoRpvNBNdIGUViZI5RhccaQ==",
+        "requested": "[43.9.300, 43.9.300]",
+        "resolved": "43.9.300",
+        "contentHash": "yFSAIVNn9HpIVJh1D58GLVGr0ew6s48knf4nWOBt6SYse2DTB+vRPkEXpKmnVqVCwRoXO9Ml4ClaIRdp5Opnew==",
         "dependencies": {
-          "FSharp.Core": "[9.0.201]",
+          "FSharp.Core": "[9.0.300]",
           "System.Buffers": "4.6.0",
           "System.Collections.Immutable": "8.0.0",
           "System.Diagnostics.DiagnosticSource": "8.0.0",
@@ -969,9 +976,9 @@
       },
       "FSharp.Core": {
         "type": "Direct",
-        "requested": "[9.0.201, 9.0.201]",
-        "resolved": "9.0.201",
-        "contentHash": "Ozq4T0ISTkqTYJ035XW/JkdDDaXofbykvfyVwkjLSqaDZ/4uNXfpf92cjcMI9lf9CxWqmlWHScViPh/4AvnWcw=="
+        "requested": "[9.0.300, 9.0.300]",
+        "resolved": "9.0.300",
+        "contentHash": "TVt2J7RCE1KCS2IaONF+p8/KIZ1eHNbW+7qmKF6hGoD4tXl+o07ja1mPtFjMqRa5uHMFaTrGTPn/m945WnDLiQ=="
       },
       "Chessie": {
         "type": "Transitive",
@@ -1894,8 +1901,15 @@
       "queil.fsharp.dependencymanager.paket": {
         "type": "Project",
         "dependencies": {
-          "FSharp.Core": "[9.0.201, 9.0.201]",
-          "Paket.Core": "[9.0.2, 9.0.2]"
+          "FSharp.Core": "[9.0.300, 9.0.300]",
+          "Paket.Core": "[9.0.2, 9.0.2]",
+          "Queil.FSharp.Hashing": "[1.0.0, )"
+        }
+      },
+      "queil.fsharp.hashing": {
+        "type": "Project",
+        "dependencies": {
+          "FSharp.Core": "[9.0.300, 9.0.300]"
         }
       }
     }

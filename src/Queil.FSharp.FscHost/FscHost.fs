@@ -1,5 +1,6 @@
 namespace Queil.FSharp.FscHost
 
+open Queil.FSharp.Hashing
 open System.Runtime.Loader
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Diagnostics
@@ -7,8 +8,6 @@ open FSharp.Compiler.Text
 open System
 open System.IO
 open System.Reflection
-open System.Text
-open System.Security.Cryptography
 
 [<RequireQualifiedAccess>]
 module private Const =
@@ -104,7 +103,8 @@ type Options =
     { Compiler: CompilerOptions
       UseCache: bool
       OutputDir: string
-      Logger: string -> unit
+      Verbose: bool
+      Logger: (string -> unit) option
       LogListTypes: bool
       AutoLoadNugetReferences: bool }
 
@@ -112,7 +112,8 @@ type Options =
         { Compiler = CompilerOptions.Default
           UseCache = false
           OutputDir = Path.Combine(Path.GetTempPath(), Const.FschDir)
-          Logger = ignore
+          Verbose = false
+          Logger = None
           LogListTypes = false
           AutoLoadNugetReferences = true }
 
@@ -120,35 +121,8 @@ type Options =
 module CompilerHost =
     open Errors
 
-    [<RequireQualifiedAccess>]
-    module private Hash =
-        let sha256 (s: string) =
-            use sha256 = SHA256.Create()
-
-            s
-            |> Encoding.UTF8.GetBytes
-            |> sha256.ComputeHash
-            |> BitConverter.ToString
-            |> _.Replace("-", "")
-
-        let short (s: string) = s[0..10].ToLowerInvariant()
-
-        let deepSourceHash rootContentHash sourceFiles =
-
-            let fileHash filePath = File.ReadAllText filePath |> sha256
-
-            let combinedHash =
-                sourceFiles
-                |> Seq.map fileHash
-                |> Seq.sort
-                |> Seq.fold (fun a b -> a + b) String.Empty
-                |> (+) rootContentHash
-                |> sha256
-
-            short combinedHash
-
     module private Internals =
-        let checker = FSharpChecker.Create()
+        let checker = FSharpChecker.Create(parallelReferenceResolution = true)
 
         let ensureScriptFile (outputRootDir: string) (script: Script) =
             let getScriptFilePath =
@@ -177,8 +151,7 @@ module CompilerHost =
             scriptFilePath, scriptDir, cacheDir
 
         let compileScript (rootFilePath: string) (metadata: ScriptCache) (options: Options) : Async<CompileOutput> =
-
-            let log = options.Logger
+            let log = options.Logger |> Option.defaultValue ignore
             let asmLoadContext = AssemblyLoadContext("script", true)
 
             let getCompileOutput dllPath =
@@ -243,10 +216,16 @@ module CompilerHost =
             }
 
     open Internals
+    open Queil.FSharp.DependencyManager.Paket
 
     let getAssembly (options: Options) (script: Script) : Async<CompileOutput> =
+        Configure.update (fun c ->
+            { c with
+                OutputRootDir = options.OutputDir
+                Verbose = options.Verbose
+                Logger = options.Logger })
 
-        let log = options.Logger
+        let log = options.Logger |> Option.defaultValue ignore
 
         async {
             let rootFilePath, scriptDir, outputDir =
@@ -254,7 +233,7 @@ module CompilerHost =
 
             log $"Root file path: %s{rootFilePath}"
             log $"Script dir: %s{scriptDir}"
-            log $"Output dir: %s{outputDir}"
+            log $"Cache dir: %s{outputDir}"
 
             match script with
             | Inline _ -> Directory.CreateDirectory scriptDir |> ignore

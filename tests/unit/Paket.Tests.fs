@@ -2,7 +2,6 @@ module Queil.FSharp.FscHost.Paket.Tests
 
 open Expecto
 open Queil.FSharp.FscHost
-open Queil.FSharp.FscHost.Common
 open System.IO
 
 [<Tests>]

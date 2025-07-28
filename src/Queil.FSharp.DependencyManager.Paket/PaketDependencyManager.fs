@@ -1,8 +1,11 @@
 namespace Queil.FSharp.DependencyManager.Paket
 
+open Queil.FSharp.Hashing
 open System
 open System.IO
 open Paket
+open System.Collections.Concurrent
+open System.Text.Json
 
 [<AttributeUsage(AttributeTargets.Assembly ||| AttributeTargets.Class, AllowMultiple = false)>]
 type DependencyManagerAttribute() =
@@ -21,12 +24,56 @@ type ResolveDependenciesResult
         sourceFiles: string seq,
         roots: string seq
     ) =
+
     member _.Success = success
     member _.StdOut = stdOut
     member _.StdError = stdError
     member _.Resolutions = resolutions
     member _.SourceFiles = sourceFiles
     member _.Roots = roots
+
+type Configuration =
+    { Verbose: bool
+      Logger: (string -> unit) option
+      ResultCache: ConcurrentDictionary<string, ResolveDependenciesResult>
+      OutputRootDir: string }
+
+    member x.PaketTmpDir() = Path.Combine(x.OutputRootDir, "paket")
+
+    member x.ResultCacheDir() =
+        Path.Combine(x.PaketTmpDir(), "results-cache")
+
+module Configure =
+    let mutable private data =
+
+        let outputRootDir = Path.Combine(Path.GetTempPath(), ".fsch")
+
+        { Verbose = false
+          Logger = None
+          ResultCache = ConcurrentDictionary<string, ResolveDependenciesResult>()
+          OutputRootDir = outputRootDir }
+
+
+    let private lockObj = obj ()
+
+    let update f = lock lockObj (fun () -> data <- f data)
+
+    let render =
+        lazy
+            (Directory.CreateDirectory(data.ResultCacheDir()) |> ignore
+
+             Directory.EnumerateFiles(data.ResultCacheDir())
+             |> Seq.map (fun f -> Path.GetFileNameWithoutExtension f, File.ReadAllText f)
+             |> Seq.iter (fun (key, content) ->
+
+                 let entry = JsonSerializer.Deserialize<ResolveDependenciesResult> content
+
+                 match entry with
+                 | null -> ()
+                 | validEntry -> data.ResultCache.TryAdd(key, validEntry) |> ignore)
+
+             data)
+
 
 [<RequireQualifiedAccess>]
 module PaketPaths =
@@ -36,31 +83,34 @@ module PaketPaths =
     let internal loadingScriptsDir (dir: string) (tfm: string) (ext: string) =
         Path.Combine(dir, Constants.PaketFolderName, "load", mainGroupFile tfm ext)
 
-[<RequireQualifiedAccess>]
-module private Hash =
-    open System.Security.Cryptography
-    open System.Text
-
-    let sha256 (s: string) =
-        use sha256 = SHA256.Create()
-
-        s
-        |> Encoding.UTF8.GetBytes
-        |> sha256.ComputeHash
-        |> BitConverter.ToString
-        |> _.Replace("-", "")
-
-    let short (s: string) = s[0..10].ToLowerInvariant()
-
 // outputDirectory not really useful as it comes empty on GetProjectOptionsFromScript
 [<DependencyManager>]
 type PaketDependencyManager(outputDirectory: string option, useResultsCache: bool) =
+
+    let config = Configure.render.Value
+    let log = config.Logger |> Option.defaultValue ignore
+
+    let mutable logObservable: IDisposable =
+        { new IDisposable with
+            member _.Dispose() = () }
+
+    do
+        Logging.verbose <- config.Verbose
+        Logging.verboseWarnings <- config.Verbose
+
+        logObservable <-
+            Paket.Logging.event.Publish
+            |> Observable.subscribe (fun (e: Logging.Trace) -> log e.Text)
+
+    interface IDisposable with
+        member _.Dispose() : unit = logObservable.Dispose()
+
     member _.Name = "paket"
     member _.Key = "paket"
 
     member _.HelpMessages: string list = []
 
-    member _.ClearResultsCache = fun () -> ()
+    member _.ClearResultsCache = fun () -> config.ResultCache.Clear()
 
     /// This method gets called by fsch twice. First for GetProjectOptionsFromScript, then for the actual compile
     member _.ResolveDependencies
@@ -74,25 +124,34 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
             timeout: int
         ) : obj =
 
+        let getCacheKey (packageManagerTextLines: (string * string) seq) (tfm: string) (rid: string) =
+            let content =
+                String.concat
+                    "|"
+                    [| yield! packageManagerTextLines |> Seq.map (fun (a, b) -> $"{a.Trim()}{b.Trim()}")
+                       tfm
+                       rid |]
+
+            Hash.sha256 content
+
         let workDir =
-            Path.Combine(Path.GetTempPath(), ".fsch", "paket", Hash.sha256 scriptDir |> Hash.short)
+            Path.Combine(config.PaketTmpDir(), Hash.sha256 scriptDir |> Hash.short)
 
-        let logPath = $"{workDir}/paket.log"
-        let log line = File.AppendAllLines(logPath, [ line ])
+        let mutable isCached = true
+        let cacheKey = getCacheKey packageManagerTextLines tfm runtimeIdentifier
 
-        try
+        let resolve () =
+            isCached <- false
+            log $"Resolving dependencies (cache key: {cacheKey})"
             let scriptExt = scriptExt[1..]
 
             Directory.CreateDirectory workDir |> ignore
 
-            log "\n----------------------------------------"
-            log $"            PROCESS DEPS               "
-            log "----------------------------------------"
             log $"SCRIPT NAME: {scriptName}"
             log $"SCRIPT DIR: {scriptDir}"
             log $"WORK DIR: {workDir}"
 
-            match Dependencies.TryLocate(workDir) with
+            match Dependencies.TryLocate workDir with
             | Some df -> File.Delete df.DependenciesFile
             | None -> ()
 
@@ -100,17 +159,14 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                 let sources = [ PackageSources.DefaultNuGetV3Source ]
                 let additionalLines = [ "storage: none"; $"framework: {tfm}"; "" ]
                 Dependencies.Init(workDir, sources, additionalLines, (fun () -> ()))
-                log "init OK"
-                Dependencies.Locate(workDir)
-
-            log $"DEPS: {deps.DependenciesFile}"
+                Dependencies.Locate workDir
 
             let preProcess (line: string) =
                 let parsed = DependenciesFileParser.parseDependencyLine line |> Seq.toList
 
                 let processed =
                     match parsed with
-                    | "github" :: path :: tail when not <| path.Contains(":") -> "github" :: $"{path}:main" :: tail
+                    | "github" :: path :: tail when not <| path.Contains ":" -> "github" :: $"{path}:main" :: tail
                     | s -> s
 
                 processed |> String.concat " "
@@ -130,16 +186,12 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
                 DependenciesFileParser.parseDependenciesFile "tmp" true newLines |> ignore
                 File.AppendAllLines(deps.DependenciesFile, newLines)
-                log "\n........... paket.dependencies ...........\n"
-                log (File.ReadAllText(deps.DependenciesFile))
-
-                log "...\n"
             with _ ->
                 File.Delete deps.DependenciesFile
                 log "Deleted invalid deps file"
                 reraise ()
 
-            deps.Install(false)
+            deps.Install false
 
             let expectedPartialPath = PaketPaths.mainGroupFile tfm scriptExt
 
@@ -148,16 +200,38 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                 |> Seq.filter (fun d -> d.PartialPath = expectedPartialPath)
                 |> Seq.head
 
-            data.Save(DirectoryInfo(workDir))
+            data.Save(DirectoryInfo workDir)
 
             let loadingScriptsFilePath = PaketPaths.loadingScriptsDir workDir tfm scriptExt
-
-            log $"LOADING SCRIPTS: {loadingScriptsFilePath}\n"
-            log (File.ReadAllText(loadingScriptsFilePath))
 
             let roots = [ Path.Combine(workDir, Constants.PaketFilesFolderName) ]
 
             ResolveDependenciesResult(true, [||], [||], [], [ loadingScriptsFilePath ], roots)
+
+        try
+
+            let resolveResult =
+                if not useResultsCache then
+                    resolve ()
+                else
+                    config.ResultCache.GetOrAdd(
+                        cacheKey,
+                        fun _ ->
+                            let result = resolve ()
+
+                            if result.Success then
+                                let serialized = System.Text.Json.JsonSerializer.Serialize result
+                                let resultCachePath = Path.Combine(config.ResultCacheDir(), $"{cacheKey}.json")
+                                File.WriteAllText(resultCachePath, serialized)
+                                log $"Saving resolve result to: {resultCachePath}"
+
+                            result
+                    )
+
+            if isCached then
+                log $"Resolve results cache hit: {cacheKey}"
+
+            resolveResult
         with e ->
             log $"{e.ToString()}"
             ResolveDependenciesResult(false, [||], [| "Paket: " + e.Message |], [], [], [])

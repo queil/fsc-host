@@ -2,3 +2,4 @@ image: ghcr.io/queil/image:dotnet-8
 shell: ["zellij", "--layout", "fsharp"]
 caches:
 - ~/.nuget
+privileged: true

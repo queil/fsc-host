@@ -6,6 +6,7 @@ open System.IO
 open Paket
 open System.Collections.Concurrent
 open System.Text.Json
+open Paket.Domain
 
 [<AttributeUsage(AttributeTargets.Assembly ||| AttributeTargets.Class, AllowMultiple = false)>]
 type DependencyManagerAttribute() =
@@ -36,9 +37,12 @@ type Configuration =
     { Verbose: bool
       Logger: (string -> unit) option
       ResultCache: ConcurrentDictionary<string, ResolveDependenciesResult>
-      OutputRootDir: string }
+      OutputRootDir: string
+      ScriptOutputRootDir: string option
+      ScriptOutputVersionDir: string option }
 
-    member x.PaketTmpDir() = Path.Combine(x.OutputRootDir, "paket")
+    member x.PaketTmpDir() =
+        Path.Combine(x.ScriptOutputRootDir |> Option.defaultValue x.OutputRootDir, "paket")
 
     member x.ResultCacheDir() =
         Path.Combine(x.PaketTmpDir(), "results-cache")
@@ -51,7 +55,9 @@ module Configure =
         { Verbose = false
           Logger = None
           ResultCache = ConcurrentDictionary<string, ResolveDependenciesResult>()
-          OutputRootDir = outputRootDir }
+          OutputRootDir = outputRootDir
+          ScriptOutputRootDir = None
+          ScriptOutputVersionDir = None }
 
 
     let private lockObj = obj ()
@@ -135,7 +141,8 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
             Hash.sha256 content
 
         let workDir =
-            Path.Combine(config.PaketTmpDir(), Hash.sha256 scriptDir |> Hash.short)
+            config.ScriptOutputRootDir
+            |> Option.defaultWith (fun () -> Path.Combine(config.PaketTmpDir(), Hash.sha256 scriptDir |> Hash.short))
 
         let mutable isCached = true
         let cacheKey = getCacheKey packageManagerTextLines tfm runtimeIdentifier
@@ -161,7 +168,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                 Dependencies.Init(workDir, sources, additionalLines, (fun () -> ()))
                 Dependencies.Locate workDir
 
-            let preProcess (line: string) =
+            let preProcessGithub (line: string) =
                 let parsed = DependenciesFileParser.parseDependencyLine line |> Seq.toList
 
                 let processed =
@@ -169,7 +176,14 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                     | "github" :: path :: tail when not <| path.Contains ":" -> "github" :: $"{path}:main" :: tail
                     | s -> s
 
-                processed |> String.concat " "
+                let isolatedWithGroups =
+                    match processed with
+                    | [ "github"; path ] ->
+                        let repo, ref = path.Split ":" |> fun x -> x[0].Replace("/", "__"), x[1]
+                        $"group gh_{repo}_{ref}\n  " :: processed @ [ "\n\ngroup Main" ]
+                    | s -> s
+
+                isolatedWithGroups |> String.concat " "
 
             try
                 let df = deps.GetDependenciesFile()
@@ -179,7 +193,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                     |> Seq.map (fun (_, s) -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
                     |> Seq.collect id
                     |> Seq.map _.Trim()
-                    |> Seq.map preProcess
+                    |> Seq.map preProcessGithub
                     |> Seq.distinct
                     |> Seq.filter (fun s -> df.Lines |> Seq.contains s |> not)
                     |> Seq.toArray
@@ -196,7 +210,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
             let expectedPartialPath = PaketPaths.mainGroupFile tfm scriptExt
 
             let data =
-                deps.GenerateLoadScriptData deps.DependenciesFile [ Domain.MainGroup ] [ tfm ] [ scriptExt ]
+                deps.GenerateLoadScriptData deps.DependenciesFile [] [ tfm ] [ scriptExt ]
                 |> Seq.filter (fun d -> d.PartialPath = expectedPartialPath)
                 |> Seq.head
 
@@ -204,7 +218,14 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
             let loadingScriptsFilePath = PaketPaths.loadingScriptsDir workDir tfm scriptExt
 
-            let roots = [ Path.Combine(workDir, Constants.PaketFilesFolderName) ]
+            let paketFilesDir = Path.Combine(workDir, Constants.PaketFilesFolderName)
+
+            let roots =
+                [ paketFilesDir
+                  yield!
+                      deps.GetDependenciesFile().Groups.Keys
+                      |> Seq.filter ((<>) (GroupName "Main"))
+                      |> Seq.map (fun g -> Path.Combine(paketFilesDir, g.Name)) ]
 
             ResolveDependenciesResult(true, [||], [||], [], [ loadingScriptsFilePath ], roots)
 

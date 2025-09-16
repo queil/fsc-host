@@ -99,6 +99,12 @@ type ScriptCache =
           yield! cache.References |> Seq.map (fun v -> $"n#{v}") ]
         |> fun lines -> File.WriteAllLines(cache.FilePath, lines)
 
+type ScriptContext =
+    { FilePath: string
+      Dir: string
+      OutputRootDir: string
+      OutputVersionDir: string }
+
 type Options =
     { Compiler: CompilerOptions
       UseCache: bool
@@ -129,13 +135,25 @@ module CompilerHost =
                 function
                 | File path ->
                     let shallowHash = path |> File.ReadAllText |> Hash.sha256 |> Hash.short
+                    let scriptFullPathHash = path |> Hash.sha256 |> Hash.short
                     let scriptDir = Path.GetDirectoryName path
-                    path, scriptDir, Path.Combine(outputRootDir, shallowHash)
+
+                    { FilePath = path
+                      Dir = scriptDir
+                      OutputRootDir = Path.Combine(outputRootDir, scriptFullPathHash)
+                      OutputVersionDir = Path.Combine(outputRootDir, scriptFullPathHash, shallowHash) }
+
                 | Inline body ->
                     let shallowHash = body |> Hash.sha256 |> Hash.short
                     let scriptDir = Path.Combine(Path.GetTempPath(), Const.FschDir, shallowHash)
                     let filePath = Path.Combine(scriptDir, Const.InlineFsx)
-                    filePath, scriptDir, Path.Combine(outputRootDir, shallowHash)
+                    let scriptFullPathHash = filePath |> Hash.sha256 |> Hash.short
+
+                    { FilePath = filePath
+                      Dir = scriptDir
+                      OutputRootDir = Path.Combine(outputRootDir, scriptFullPathHash)
+                      OutputVersionDir = Path.Combine(outputRootDir, scriptFullPathHash, shallowHash) }
+
 
             let createInlineScriptFile (filePath: string) =
                 function
@@ -144,11 +162,11 @@ module CompilerHost =
                     File.WriteAllText(filePath, body)
                 | _ -> ()
 
-            let scriptFilePath, scriptDir, cacheDir = script |> getScriptFilePath
+            let ctx = script |> getScriptFilePath
 
-            script |> createInlineScriptFile scriptFilePath
+            script |> createInlineScriptFile ctx.FilePath
 
-            scriptFilePath, scriptDir, cacheDir
+            ctx
 
         let compileScript (rootFilePath: string) (metadata: ScriptCache) (options: Options) : Async<CompileOutput> =
             let log = options.Logger |> Option.defaultValue ignore
@@ -228,30 +246,34 @@ module CompilerHost =
         let log = options.Logger |> Option.defaultValue ignore
 
         async {
-            let rootFilePath, scriptDir, outputDir =
-                script |> ensureScriptFile options.OutputDir
+            let ctx = script |> ensureScriptFile options.OutputDir
 
-            log $"Root file path: %s{rootFilePath}"
-            log $"Script dir: %s{scriptDir}"
-            log $"Cache dir: %s{outputDir}"
+            log $"Root file path: %s{ctx.FilePath}"
+            log $"Script dir: %s{ctx.Dir}"
+            log $"Cache dir: %s{ctx.OutputVersionDir}"
+
+            Configure.update (fun c ->
+                { c with
+                    ScriptOutputRootDir = Some ctx.OutputRootDir
+                    ScriptOutputVersionDir = Some ctx.OutputVersionDir })
 
             match script with
-            | Inline _ -> Directory.CreateDirectory scriptDir |> ignore
+            | Inline _ -> Directory.CreateDirectory ctx.Dir |> ignore
             | _ -> ()
 
-            Directory.CreateDirectory outputDir |> ignore
+            Directory.CreateDirectory ctx.OutputVersionDir |> ignore
 
-            let cacheDepsFilePath = Path.Combine(outputDir, Const.FschDeps)
+            let cacheDepsFilePath = Path.Combine(ctx.OutputVersionDir, Const.FschDeps)
 
             let! metadataResult =
                 async {
 
                     let buildMetadata () =
                         async {
-                            let source = File.ReadAllText rootFilePath |> SourceText.ofString
+                            let source = File.ReadAllText ctx.FilePath |> SourceText.ofString
 
                             let! projOptions, errors =
-                                checker.GetProjectOptionsFromScript(rootFilePath, source, previewEnabled = true)
+                                checker.GetProjectOptionsFromScript(ctx.FilePath, source, previewEnabled = true)
 
                             match errors with
                             | [] ->
@@ -259,7 +281,7 @@ module CompilerHost =
                                     { ScriptCache.Default with
                                         FilePath = cacheDepsFilePath
                                         SourceFiles =
-                                            projOptions.SourceFiles |> Seq.except [ rootFilePath ] |> Seq.toList }
+                                            projOptions.SourceFiles |> Seq.except [ ctx.FilePath ] |> Seq.toList }
 
                                 log "Source files:"
 
@@ -281,7 +303,7 @@ module CompilerHost =
                                                         | _ -> None)
                                                     |> Seq.map (function
                                                         | p when Path.IsPathRooted p -> p
-                                                        | p -> Path.GetFullPath(Path.Combine(scriptDir, p)))
+                                                        | p -> Path.GetFullPath(Path.Combine(ctx.Dir, p)))
                                                     |> Seq.toList }
                             | errors -> return Error errors
                         }
@@ -297,10 +319,15 @@ module CompilerHost =
             try
                 match metadataResult with
                 | Ok metadata ->
-                    Directory.SetCurrentDirectory scriptDir
+                    Directory.SetCurrentDirectory ctx.Dir
                     metadata.Save()
 
-                    return! compileScript rootFilePath metadata { options with OutputDir = outputDir }
+                    return!
+                        compileScript
+                            ctx.FilePath
+                            metadata
+                            { options with
+                                OutputDir = ctx.OutputVersionDir }
                 | Error errors -> return raise (ScriptParseError(errors |> Seq.map string))
             finally
                 Directory.SetCurrentDirectory originalDir

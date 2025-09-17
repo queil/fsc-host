@@ -55,7 +55,7 @@ module Configure =
 
     let update f = lock lockObj (fun () -> data <- f data)
 
-    let internal render = data
+    let internal render() = data
 
 
 [<RequireQualifiedAccess>]
@@ -73,7 +73,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
     let resultCache = ConcurrentDictionary<string, ResolveDependenciesResult>()
     
-    let config = Configure.render
+    let config = Configure.render()
     let log = config.Logger |> Option.defaultValue ignore
 
     let mutable logObservable: IDisposable =

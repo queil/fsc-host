@@ -6,6 +6,15 @@ open System.Text
 open System.Security.Cryptography
 open System.Threading
 
+type FileHash =
+    { PathHash: string
+      ContentHash: string }
+
+    member x.HashedScriptDir(rootDir: string) = Path.Combine(rootDir, x.PathHash)
+
+    member x.HashedScriptVersionDir(rootDir: string) =
+        Path.Combine(rootDir, x.PathHash, x.ContentHash)
+
 [<RequireQualifiedAccess>]
 module Hash =
     let private sha256Hasher = new ThreadLocal<SHA256>(fun () -> SHA256.Create())
@@ -32,3 +41,9 @@ module Hash =
             |> sha256
 
         short combinedHash
+
+    let fileHash (path: string) (contentHash: string option) =
+        { PathHash = path |> sha256 |> short
+          ContentHash =
+            contentHash
+            |> Option.defaultWith (fun () -> path |> File.ReadAllText |> sha256 |> short) }

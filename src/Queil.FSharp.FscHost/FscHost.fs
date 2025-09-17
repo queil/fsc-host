@@ -134,25 +134,24 @@ module CompilerHost =
             let getScriptFilePath =
                 function
                 | File path ->
-                    let shallowHash = path |> File.ReadAllText |> Hash.sha256 |> Hash.short
-                    let scriptFullPathHash = path |> Hash.sha256 |> Hash.short
+                    let hashes = (path, None) ||> Hash.fileHash
                     let scriptDir = Path.GetDirectoryName path
 
                     { FilePath = path
                       Dir = scriptDir
-                      OutputRootDir = Path.Combine(outputRootDir, scriptFullPathHash)
-                      OutputVersionDir = Path.Combine(outputRootDir, scriptFullPathHash, shallowHash) }
+                      OutputRootDir = hashes.HashedScriptDir outputRootDir
+                      OutputVersionDir = hashes.HashedScriptVersionDir outputRootDir }
 
                 | Inline body ->
                     let shallowHash = body |> Hash.sha256 |> Hash.short
-                    let scriptDir = Path.Combine(Path.GetTempPath(), Const.FschDir, shallowHash)
+                    let scriptDir = Path.Combine(outputRootDir, shallowHash)
                     let filePath = Path.Combine(scriptDir, Const.InlineFsx)
-                    let scriptFullPathHash = filePath |> Hash.sha256 |> Hash.short
+                    let hashes = (filePath, Some shallowHash) ||> Hash.fileHash
 
                     { FilePath = filePath
                       Dir = scriptDir
-                      OutputRootDir = Path.Combine(outputRootDir, scriptFullPathHash)
-                      OutputVersionDir = Path.Combine(outputRootDir, scriptFullPathHash, shallowHash) }
+                      OutputRootDir = hashes.HashedScriptDir outputRootDir
+                      OutputVersionDir = hashes.HashedScriptVersionDir outputRootDir }
 
 
             let createInlineScriptFile (filePath: string) =

@@ -5,6 +5,7 @@ open Expecto
 open Queil.FSharp.FscHost.Plugin
 open Queil.FSharp.FscHost.Common
 open System.IO
+open Queil.FSharp.Hashing
 
 [<Tests>]
 let cacheTests =
@@ -94,27 +95,32 @@ let cacheTests =
           testAsync "Override output dir path" {
               let tmpPath = ensureTempPath ()
 
-              let findDlls () =
-                  Directory.EnumerateDirectories tmpPath
-                  |> Seq.tryHead
-                  |> Option.bind (fun dir ->
-                      Directory.EnumerateDirectories dir
-                      |> Seq.tryHead
-                      |> Option.bind (Directory.EnumerateFiles >> Seq.tryFind (fun f -> f.EndsWith ".dll")))
+              let content = "let plugin = Some 10"
+              let shallowHash = content |> Hash.sha256 |> Hash.short
+              let scriptDir = Path.Combine(tmpPath, shallowHash)
+              let filePath = Path.Combine(scriptDir, "inline.fsx")
+              let hashes = (filePath, Some shallowHash) ||> Hash.fileHash
 
-              findDlls ()
-              |> Expecto.Flip.Expect.isNone "The cache dir should not contain dlls"
+              let assemblyOutputPath = hashes.HashedScriptVersionDir tmpPath
+
+              Directory.CreateDirectory assemblyOutputPath |> ignore
+
+              let findDlls () =
+                  Directory.EnumerateFiles assemblyOutputPath
+                  |> Seq.tryFind ((<>) "18423585a9c.dll")
+
+              findDlls () |> Flip.Expect.isNone "The cache dir should not contain dlls"
 
               let! _ =
                   plugin<int option> {
-                      body "let plugin = Some 10"
+                      body content
                       cache true
                       output_dir tmpPath
                       log System.Console.WriteLine
                   }
 
               findDlls ()
-              |> Expecto.Flip.Expect.isSome $"The cache dir %s{tmpPath} should contain dlls"
+              |> Flip.Expect.isSome $"The cache dir %s{assemblyOutputPath} should contain dlls"
           }
 
           testAsync "Shouldn't cache if caching not enabled" {

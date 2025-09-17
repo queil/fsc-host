@@ -76,20 +76,6 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
     let config = Configure.render()
     let log = config.Logger |> Option.defaultValue ignore
 
-    let mutable logObservable: IDisposable =
-        { new IDisposable with
-            member _.Dispose() = () }
-
-    do
-        Logging.verbose <- config.Verbose
-        Logging.verboseWarnings <- config.Verbose
-
-        logObservable <-
-            Paket.Logging.event.Publish
-            |> Observable.subscribe (fun (e: Logging.Trace) -> log e.Text)
-
-    interface IDisposable with
-        member _.Dispose() : unit = logObservable.Dispose()
 
     member _.Name = "paket"
     member _.Key = "paket"
@@ -110,6 +96,11 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
             timeout: int
         ) : obj =
 
+
+        Logging.verbose <- config.Verbose
+        Logging.verboseWarnings <- config.Verbose
+        use _ = Paket.Logging.event.Publish |> Observable.subscribe (fun (e: Logging.Trace) -> log e.Text)
+
         let getCacheKey (packageManagerTextLines: (string * string) seq) (tfm: string) (rid: string) =
             let content =
                 String.concat
@@ -128,9 +119,9 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
         let resultCacheDir = Path.Combine(workDir, "resolve-cache");
         
-        Directory.CreateDirectory(resultCacheDir) |> ignore
+        Directory.CreateDirectory resultCacheDir |> ignore
 
-        Directory.EnumerateFiles(resultCacheDir)
+        Directory.EnumerateFiles resultCacheDir
          |> Seq.map (fun f -> Path.GetFileNameWithoutExtension f, File.ReadAllText f)
          |> Seq.iter (fun (key, content) ->
              let entry = JsonSerializer.Deserialize<ResolveDependenciesResult> content

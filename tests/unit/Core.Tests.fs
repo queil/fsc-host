@@ -9,7 +9,7 @@ open System.IO
 let tests =
     testList
         "Core"
-        [ test "Should be able to extract a list" {
+        [ testAsync "Should be able to extract a list" {
               let script =
                   """
 namespace Test.Script
@@ -18,17 +18,17 @@ module Countries =
   let myList = ["UK"; "Poland"; "France"]
 """
 
-              let result =
+              let! result =
                   Common.invoke
                   <| fun () ->
                       Inline script
                       |> CompilerHost.getMember Common.options (Member<string list>.Path "Test.Script.Countries.myList")
-                      |> Async.RunSynchronously
+
 
               "Lists should be equal" |> Expect.equal result [ "UK"; "Poland"; "France" ]
           }
 
-          test "Should be able to invoke function value" {
+          testAsync "Should be able to invoke function value" {
               let script =
                   """
 module Test.Script
@@ -37,19 +37,19 @@ let myFuncOrig (name:string) = sprintf "Hello %s!" name
 let myFunc = myFuncOrig
 """
 
-              let myFunc =
+              let! myFunc =
                   Common.invoke
                   <| fun () ->
                       Inline script
                       |> CompilerHost.getMember Common.options (Member<string -> string>.Path "Test.Script.myFunc")
-                      |> Async.RunSynchronously
+
 
               let callResult = myFunc "TEST 109384"
 
               "Unexpected call result" |> Expect.equal callResult "Hello TEST 109384!"
           }
 
-          test "Should show the actual property type if it's invalid" {
+          testAsync "Should show the actual property type if it's invalid" {
               let script =
                   """
 module Test.Script
@@ -58,25 +58,32 @@ let myFuncOrig (name:string) = sprintf "Hello %s!" name
 let myFunc = myFuncOrig
 """
 
-              Expect.throwsC
+              Expect.throwsAsyncC
                   (fun () ->
                       Common.invoke
                       <| fun () ->
-                          Inline script
-                          |> CompilerHost.getMember Common.options (Member<string -> int>.Path "Test.Script.myFunc")
-                          |> Async.RunSynchronously
-                          |> ignore)
+                          async {
+                              let! _ =
+                                  Inline script
+                                  |> CompilerHost.getMember
+                                      Common.options
+                                      (Member<string -> int>.Path "Test.Script.myFunc")
+
+                              return ()
+                          })
 
                   (fun exn ->
-                      match exn with
-                      | ScriptMemberHasInvalidType(_, typ) ->
-                          "Expected type is not right"
-                          |> Expect.equal typ (typeof<string -> string>.ToString())
-                      | _ -> failtest "Should throw ScriptsPropertyHasInvalidType")
+                      async {
+                          match exn with
+                          | ScriptMemberHasInvalidType(_, typ) ->
+                              "Expected type is not right"
+                              |> Expect.equal typ (typeof<string -> string>.ToString())
+                          | _ -> failtest "Should throw ScriptsPropertyHasInvalidType"
+                      })
               |> ignore
           }
 
-          test "Should be able to extract 2 porperties" {
+          testAsync "Should be able to extract 2 porperties" {
               let script =
                   """
 namespace Test.Script
@@ -86,7 +93,7 @@ module Countries =
   let myCount = myList |> List.length
 """
 
-              let result =
+              let! result =
                   Common.invoke
                   <| fun () ->
                       Inline script
@@ -95,12 +102,12 @@ module Countries =
                           (Member<string list>.Path "Test.Script.Countries.myList")
                           (Member<int>.Path "Test.Script.Countries.myCount")
 
-                      |> Async.RunSynchronously
+
 
               "Lists should be equal" |> Expect.equal result ([ "UK"; "Poland"; "France" ], 3)
           }
 
-          test "Should be able to extract 3 properties" {
+          testAsync "Should be able to extract 3 properties" {
               let script =
                   """
 namespace Test.Script
@@ -112,7 +119,7 @@ module Countries =
   
 """
 
-              let result =
+              let! result =
                   Common.invoke
                   <| fun () ->
                       Inline script
@@ -122,13 +129,13 @@ module Countries =
                           (Member<int>.Path "Test.Script.Countries.myCount")
                           (Member<float>.Path "Test.Script.Countries.myFloat")
 
-                      |> Async.RunSynchronously
+
 
               "Lists should be equal"
               |> Expect.equal result ([ "UK"; "Poland"; "France" ], 3, 44.44)
           }
 
-          test "Should be able to extract 4 properties" {
+          testAsync "Should be able to extract 4 properties" {
               let script =
                   """
 namespace Test.Script
@@ -141,7 +148,7 @@ module Countries =
   
 """
 
-              let result =
+              let! result =
                   Common.invoke
                   <| fun () ->
                       Inline script
@@ -152,41 +159,42 @@ module Countries =
                           (Member<float>.Path "Test.Script.Countries.myFloat")
                           (Member<Map<string, int>>.Path "Test.Script.Countries.myMap")
 
-                      |> Async.RunSynchronously
+
 
               "Lists should be equal"
               |> Expect.equal result ([ "UK"; "Poland"; "France" ], 3, 44.44, [ ("s", 1) ] |> Map.ofList)
           }
 
-          test "Should not fail on warnings" {
+          testAsync "Should not fail on warnings" {
               let script =
                   """System.DateTime.Now.ToString() |> printfn "%s"
 """
 
-              Common.invoke
-              <| fun () ->
-                  Inline script
-                  |> CompilerHost.getAssembly Common.options
-                  |> Async.RunSynchronously
-                  |> ignore
+              let! _ =
+                  Common.invoke
+                  <| fun () -> Inline script |> CompilerHost.getAssembly Common.options
+
+              return ()
           }
 
-          test "Should fail on errors" {
+          testAsync "Should fail on errors" {
               let script =
                   """let 9999
 """
 
-              "Should throw compilation error"
-              |> Expect.throws (fun () ->
-                  Common.invoke
-                  <| fun () ->
-                      Inline script
-                      |> CompilerHost.getAssembly Common.options
-                      |> Async.RunSynchronously
-                      |> ignore)
+              do!
+                  "Should throw compilation error"
+                  |> Expect.throwsAsync (fun () ->
+                      async {
+                          let! _ =
+                              Common.invoke
+                              <| fun () -> Inline script |> CompilerHost.getAssembly Common.options
+
+                          return ()
+                      })
           }
 
-          test "Should load assembly ID:2" {
+          testAsync "Should load assembly ID:2" {
               let script =
                   """
 module Test.Script
@@ -196,21 +204,23 @@ module Test.Script
 let myFunc () = Json.Pointer.JsonPointer.Parse("/some").ToString()
 """
 
-              let myFunc =
+              let! myFunc =
                   Common.invoke
                   <| fun () ->
-                      Inline script
-                      |>
+                      async {
+                          let! r =
+                              Inline script
+                              |>
 
-                      CompilerHost.getAssembly Common.options
-                      |> Async.RunSynchronously
-                      |> fun x -> x.Assembly.Value
-                      |> Member.get<unit -> string> "Test.Script.myFunc"
+                              CompilerHost.getAssembly Common.options
+
+                          return r.Assembly.Value |> Member.get<unit -> string> "Test.Script.myFunc"
+                      }
 
               "Value should match" |> Expect.equal (myFunc ()) "/some"
           }
 
-          test "Should correctly load dlls via r ID:94723" {
+          testAsync "Should correctly load dlls via r ID:94723" {
 
               let tmpPath = ensureTempPath ()
 
@@ -234,26 +244,29 @@ let myFunc () = Inline "test" |> string
 
               System.IO.File.WriteAllText(fullScriptPath, scriptBody)
 
-              let myFunc =
+              let! myFunc =
                   Common.invoke
                   <| fun () ->
-                      Queil.FSharp.FscHost.File fullScriptPath
-                      |>
+                      async {
+                          let! r =
+                              Queil.FSharp.FscHost.File fullScriptPath
+                              |>
 
-                      CompilerHost.getAssembly
-                          { Common.options with
-                              UseCache = false
-                              Compiler =
-                                  { Common.options.Compiler with
-                                      IncludeHostEntryAssembly = false } }
-                      |> Async.RunSynchronously
-                      |> fun x -> x.Assembly.Value
-                      |> Member.get<unit -> string> "Test.Script.myFunc"
+                              CompilerHost.getAssembly
+                                  { Common.options with
+                                      UseCache = false
+                                      Compiler =
+                                          { Common.options.Compiler with
+                                              IncludeHostEntryAssembly = false } }
+
+                          return r.Assembly.Value |> Member.get<unit -> string> "Test.Script.myFunc"
+
+                      }
 
               "Value should match" |> Expect.equal (myFunc ()) @"Inline ""test"""
           }
 
-          test "Should pass defined symbols" {
+          testAsync "Should pass defined symbols" {
               let script =
                   """module Test.Script
 #if MY_SYMBOL
@@ -269,19 +282,20 @@ let export = "NOT_WORKED"
                           { Common.options.Compiler with
                               Symbols = [ "MY_SYMBOL" ] } }
 
-              Common.invoke
-              <| fun () ->
-                  let value =
-                      Inline script
-                      |> CompilerHost.getAssembly opts
-                      |> Async.RunSynchronously
-                      |> fun x -> x.Assembly.Value
-                      |> Member.get<string> "Test.Script.export"
+              do!
+                  Common.invoke
+                  <| fun () ->
+                      async {
+                          let! r = Inline script |> CompilerHost.getAssembly opts
 
-                  "Value should match" |> Expect.equal value "WORKED"
+                          let value = r.Assembly.Value |> Member.get<string> "Test.Script.export"
+
+                          "Value should match" |> Expect.equal value "WORKED"
+                      }
+
           }
 
-          test "Should be able to Common.invoke func" {
+          testAsync "Should be able to Common.invoke func" {
               let script =
                   """
 namespace Test.Script
@@ -298,7 +312,7 @@ module Func =
 
 """
 
-              let resultFunc, sideEffect =
+              let! resultFunc, sideEffect =
                   Common.invoke
                   <| fun () ->
                       Inline script
@@ -306,7 +320,7 @@ module Func =
                           Common.options
                           (Member<float * int -> string -> int -> unit option -> string>.Path "Test.Script.Func.myFunc")
                           (Member<unit -> unit>.Path "Test.Script.Func.sideEffect")
-                      |> Async.RunSynchronously
+
 
               let result = resultFunc (2.0, 8) "expected" 451 (Some())
               let msg = Expect.throwsC (fun () -> sideEffect ()) (fun exn -> exn.Message)
@@ -316,7 +330,7 @@ module Func =
               |> Expect.equal result "tuple2: (2.000000, 8) - text: expected - number: 451 - unit option: Some ()"
           }
 
-          test "Should handle two decomposed tuples in func" {
+          testAsync "Should handle two decomposed tuples in func" {
               let script =
                   """
 namespace Test.Script
@@ -331,14 +345,14 @@ module Func =
 
 """
 
-              let resultFunc =
+              let! resultFunc =
                   Common.invoke
                   <| fun () ->
                       Inline script
                       |> CompilerHost.getMember
                           Common.options
                           (Member<float * int -> (_ -> string) * (string -> _) -> string>.Path "Test.Script.Func.myFunc")
-                      |> Async.RunSynchronously
+
               //this tests fails when the unit in fun () -> "test" is replaced by fun x -> "test"
               let result = resultFunc (2.0, 8) ((fun () -> "test"), (fun _ -> ()))
 
@@ -346,7 +360,7 @@ module Func =
               |> Expect.equal result "tuple1: (2.000000, 8) - tuple2: (test, ())"
           }
 
-          test "Should handle non-decomposed tuples in func" {
+          testAsync "Should handle non-decomposed tuples in func" {
               let script =
                   """
 namespace Test.Script
@@ -356,19 +370,19 @@ module Func =
 
 """
 
-              let resultFunc =
+              let! resultFunc =
                   Common.invoke
                   <| fun () ->
                       Inline script
                       |> CompilerHost.getMember Common.options (Member<_ -> string>.Path "Test.Script.Func.myFunc")
-                      |> Async.RunSynchronously
+
 
               let result = resultFunc (2.0, 8)
 
               "Values should be equal" |> Expect.equal result "Generic: (2.0, 8)"
           }
 
-          test "Should handle fully generic method with tuples in func" {
+          testAsync "Should handle fully generic method with tuples in func" {
               let script =
                   """
 namespace Test.Script
@@ -378,14 +392,14 @@ module Func =
 
 """
 
-              let resultFunc =
+              let! resultFunc =
                   Common.invoke
                   <| fun () ->
                       Inline script
                       |> CompilerHost.getMember
                           Common.options
                           (Member<_ -> (_ -> _) -> _>.Path "Test.Script.Func.myFunc")
-                      |> Async.RunSynchronously
+
 
               let result = resultFunc (2.0, 8) <| fun (a, b) -> $"Generic: (%f{a}, %i{b})"
 

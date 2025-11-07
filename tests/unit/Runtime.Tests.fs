@@ -7,18 +7,22 @@ open Queil.FSharp.FscHost
 let tests =
     testList
         "Runtime"
-        [ test "Should be able to load System.Security.Cryptography.ProtectedData" {
+        [ testAsync "Should be able to load System.Security.Cryptography.ProtectedData" {
               let script =
                   """
                     #r "paket: nuget System.Security.Cryptography.ProtectedData >= 8.0.0"
                     """
 
-              Common.invoke
-              <| fun () ->
-                  Inline script
-                  |> CompilerHost.getAssembly Common.options
-                  |> Async.RunSynchronously
-                  |> _.Assembly.Value
-                  |> ignore
+              let! _ =
+                  Common.invoke
+                  <| fun () ->
+                      async {
+                          let! r = Inline script |> CompilerHost.getAssembly Common.options
+
+                          r.Assembly.Value |> ignore
+                          return ()
+                      }
+
+              return ()
 
           } ]

@@ -9,7 +9,7 @@ module Common =
             UseCache = true
             Logger = Some(printfn "%s") }
 
-    let invoke<'a> (func: unit -> 'a) =
+    let invoke<'a> (func: unit -> 'a) : 'a =
         try
             func ()
         with ScriptMemberHasInvalidType(propertyName, actualTypeSignature) ->
@@ -17,6 +17,7 @@ module Common =
                 $"Diagnostics: Property '%s{propertyName}' should be of type '%s{typeof<'a>.ToString()}' but is '%s{actualTypeSignature}'"
 
             reraise ()
+
 
     let ensureTempPath () =
         let tmpPath =

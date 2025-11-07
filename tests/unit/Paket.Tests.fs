@@ -51,7 +51,7 @@ let paketTests =
               ()
           }
 
-          test "Should support Paket nuget with cache" {
+          testAsync "Should support Paket nuget with cache" {
               let script =
                   """
                 #r "paket: nuget Yzl"
@@ -71,19 +71,18 @@ let paketTests =
               Directory.CreateDirectory(dir) |> ignore
               File.WriteAllText(scriptFilePath, script)
 
-              let resultFunc =
+              let! resultFunc =
                   Common.invoke
                   <| fun () ->
                       Queil.FSharp.FscHost.File scriptFilePath
                       |> CompilerHost.getMember
                           { options with UseCache = true }
-                          (Member<unit -> unit>.Path("Script.X.x"))
-                      |> Async.RunSynchronously
+                          (Member<unit -> unit>.Path "Script.X.x")
 
               resultFunc ()
           }
 
-          test "Should support Paket GitHub" {
+          testAsync "Should support Paket GitHub" {
               let script =
                   """
                 #r "paket: github queil/yzl src/Yzl/Yzl.fs"
@@ -97,14 +96,13 @@ let paketTests =
                     let x () = 10 |> Yzl.render |> printfn "%s"
                 """
 
-              let resultFunc =
+              let! resultFunc =
                   Common.invoke
                   <| fun () ->
                       Inline script
                       |> CompilerHost.getMember
                           { options with UseCache = false }
-                          (Member<unit -> unit>.Path("Script.X.x"))
-                      |> Async.RunSynchronously
+                          (Member<unit -> unit>.Path "Script.X.x")
 
               resultFunc ()
           } ]

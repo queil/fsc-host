@@ -10,7 +10,7 @@ open Queil.FSharp.Hashing
 [<Tests>]
 let cacheTests =
     testList
-        "Caching"
+        "Cache"
         [ let asScript filePath lines =
               File.WriteAllLines(filePath, lines |> Seq.toArray)
 

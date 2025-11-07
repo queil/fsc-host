@@ -236,11 +236,6 @@ module CompilerHost =
     open Queil.FSharp.DependencyManager.Paket
 
     let getAssembly (options: Options) (script: Script) : Async<CompileOutput> =
-        Configure.update (fun c ->
-            { c with
-                OutputRootDir = options.OutputDir
-                Verbose = options.Verbose
-                Logger = options.Logger })
 
         let log = options.Logger |> Option.defaultValue ignore
 
@@ -251,8 +246,11 @@ module CompilerHost =
             log $"Script dir: %s{ctx.Dir}"
             log $"Cache dir: %s{ctx.OutputVersionDir}"
 
-            Configure.update (fun c ->
+            Configure.update ctx.FilePath (fun c ->
                 { c with
+                    OutputRootDir = options.OutputDir
+                    Verbose = options.Verbose
+                    Logger = options.Logger
                     ScriptOutputRootDir = Some ctx.OutputRootDir
                     ScriptOutputVersionDir = Some ctx.OutputVersionDir })
 

@@ -34,28 +34,41 @@ type ResolveDependenciesResult
     member _.Roots = roots
 
 type Configuration =
-    { Verbose: bool
+    { IsDefault: bool
+      Verbose: bool
       Logger: (string -> unit) option
       OutputRootDir: string
       ScriptOutputRootDir: string option
       ScriptOutputVersionDir: string option }
 
-module Configure =
-    let mutable private data =
-
-        let outputRootDir = Path.Combine(Path.GetTempPath(), ".fsch")
-
-        { Verbose = false
+    static member Default =
+        { IsDefault = true
+          Verbose = false
           Logger = None
-          OutputRootDir = outputRootDir
+          OutputRootDir = Path.Combine(Path.GetTempPath(), ".fsch")
           ScriptOutputRootDir = None
           ScriptOutputVersionDir = None }
 
-    let private lockObj = obj ()
+module Configure =
 
-    let update f = lock lockObj (fun () -> data <- f data)
+    let private data: ConcurrentDictionary<string, Configuration> =
+        ConcurrentDictionary<string, Configuration>()
 
-    let internal render() = data
+    let update (key: string) (update: Configuration -> Configuration) : unit =
+
+        data.AddOrUpdate(
+            key,
+            (fun _ ->
+                { update Configuration.Default with
+                    IsDefault = false }),
+            (fun _ old -> { update old with IsDefault = false })
+        )
+
+        |> ignore
+
+    let internal render key =
+        let exists, value = data.TryGetValue key
+        if exists then value else Configuration.Default
 
 
 [<RequireQualifiedAccess>]
@@ -72,10 +85,6 @@ module PaketPaths =
 type PaketDependencyManager(outputDirectory: string option, useResultsCache: bool) =
 
     let resultCache = ConcurrentDictionary<string, ResolveDependenciesResult>()
-    
-    let config = Configure.render()
-    let log = config.Logger |> Option.defaultValue ignore
-
 
     member _.Name = "paket"
     member _.Key = "paket"
@@ -96,10 +105,20 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
             timeout: int
         ) : obj =
 
+        let config = Configure.render scriptName
+        let log = config.Logger |> Option.defaultValue ignore
+
+        if config.IsDefault then
+            log "Using default config"
+        else
+            log "Using config override"
 
         Logging.verbose <- config.Verbose
         Logging.verboseWarnings <- config.Verbose
-        use _ = Paket.Logging.event.Publish |> Observable.subscribe (fun (e: Logging.Trace) -> log e.Text)
+
+        use _ =
+            Paket.Logging.event.Publish
+            |> Observable.subscribe (fun (e: Logging.Trace) -> log e.Text)
 
         let getCacheKey (packageManagerTextLines: (string * string) seq) (tfm: string) (rid: string) =
             let content =
@@ -117,18 +136,19 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                 let hashes = Hash.fileHash scriptName None
                 hashes.HashedScriptDir config.OutputRootDir)
 
-        let resultCacheDir = Path.Combine(workDir, "resolve-cache");
-        
+        let resultCacheDir = Path.Combine(workDir, "resolve-cache")
+
         Directory.CreateDirectory resultCacheDir |> ignore
 
         Directory.EnumerateFiles resultCacheDir
-         |> Seq.map (fun f -> Path.GetFileNameWithoutExtension f, File.ReadAllText f)
-         |> Seq.iter (fun (key, content) ->
-             let entry = JsonSerializer.Deserialize<ResolveDependenciesResult> content
-             match entry with
-             | null -> ()
-             | validEntry -> resultCache.TryAdd(key, validEntry) |> ignore)
-        
+        |> Seq.map (fun f -> Path.GetFileNameWithoutExtension f, File.ReadAllText f)
+        |> Seq.iter (fun (key, content) ->
+            let entry = JsonSerializer.Deserialize<ResolveDependenciesResult> content
+
+            match entry with
+            | null -> ()
+            | validEntry -> resultCache.TryAdd(key, validEntry) |> ignore)
+
         let mutable isCached = true
         let cacheKey = getCacheKey packageManagerTextLines tfm runtimeIdentifier
 

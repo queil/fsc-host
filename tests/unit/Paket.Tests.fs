@@ -9,8 +9,7 @@ let paketTests =
 
     let options = Common.options
 
-    testSequencedGroup "Paket"
-    <| testList
+    testList
         "Paket"
         [
 
@@ -68,7 +67,7 @@ let paketTests =
               let dir = "/tmp/.fsch/fixed-location"
 
               let scriptFilePath = $"{dir}/paket.nuget.cache.fsx"
-              Directory.CreateDirectory(dir) |> ignore
+              Directory.CreateDirectory dir |> ignore
               File.WriteAllText(scriptFilePath, script)
 
               let! resultFunc =
@@ -85,16 +84,16 @@ let paketTests =
           testAsync "Should support Paket GitHub" {
               let script =
                   """
-                #r "paket: github queil/yzl src/Yzl/Yzl.fs"
-                #load "queil/yzl/src/Yzl/Yzl.fs"
-                namespace Script
+                  #r "paket: github queil/yzl src/Yzl/Yzl.fs"
+                  #load "queil/yzl/src/Yzl/Yzl.fs"
+                  namespace Script
 
-                module X =
+                  module X =
 
-                    open Yzl
+                      open Yzl
 
-                    let x () = 10 |> Yzl.render |> printfn "%s"
-                """
+                      let x () = 10 |> Yzl.render |> printfn "%s"
+                  """
 
               let! resultFunc =
                   Common.invoke
@@ -105,4 +104,6 @@ let paketTests =
                           (Member<unit -> unit>.Path "Script.X.x")
 
               resultFunc ()
-          } ]
+          }
+
+          ]

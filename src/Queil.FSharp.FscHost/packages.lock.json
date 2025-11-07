@@ -976,9 +976,9 @@
       },
       "FSharp.Core": {
         "type": "Direct",
-        "requested": "[9.0.300, 9.0.300]",
-        "resolved": "9.0.300",
-        "contentHash": "TVt2J7RCE1KCS2IaONF+p8/KIZ1eHNbW+7qmKF6hGoD4tXl+o07ja1mPtFjMqRa5uHMFaTrGTPn/m945WnDLiQ=="
+        "requested": "[9.0.303, 9.0.303]",
+        "resolved": "9.0.303",
+        "contentHash": "6JlV8aD8qQvcmfoe/PMOxCHXc0uX4lR23u0fAyQtnVQxYULLoTZgwgZHSnRcuUHOvS3wULFWcwdnP1iwslH60g=="
       },
       "Chessie": {
         "type": "Transitive",
@@ -1901,7 +1901,7 @@
       "queil.fsharp.dependencymanager.paket": {
         "type": "Project",
         "dependencies": {
-          "FSharp.Core": "[9.0.300, 9.0.300]",
+          "FSharp.Core": "[9.0.303, 9.0.303]",
           "Paket.Core": "[9.0.2, 9.0.2]",
           "Queil.FSharp.Hashing": "[1.0.0, )"
         }
@@ -1909,7 +1909,7 @@
       "queil.fsharp.hashing": {
         "type": "Project",
         "dependencies": {
-          "FSharp.Core": "[9.0.300, 9.0.300]"
+          "FSharp.Core": "[9.0.303, 9.0.303]"
         }
       }
     }

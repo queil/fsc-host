@@ -4,4 +4,4 @@ open Expecto
 
 [<EntryPoint>]
 let main argv =
-    Tests.runTestsInAssemblyWithCLIArgs [ No_Spinner; Sequenced ] argv
+    Tests.runTestsInAssemblyWithCLIArgs [ No_Spinner ] argv

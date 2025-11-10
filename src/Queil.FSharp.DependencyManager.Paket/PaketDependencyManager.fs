@@ -186,6 +186,12 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                     | [ "github"; path ] ->
                         let repo, ref = path.Split ":" |> fun x -> x[0].Replace("/", "__"), x[1]
                         $"group gh_{repo}_{ref}\n  " :: processed @ [ "\n\ngroup Main" ]
+                    | [ "git"; url ] ->
+                        let server, _, project, _, _, _, _ = Git.Handling.extractUrlParts url
+                        $"group git_{server}_{project}\n  " :: processed @ [ "\n\ngroup Main" ]
+                    | [ "git"; url; ref ] ->
+                        let server, _, project, _, _, _, _ = Git.Handling.extractUrlParts url
+                        $"group git_{server}_{project}_{ref}\n  " :: processed @ [ "\n\ngroup Main" ]
                     | s -> s
 
                 isolatedWithGroups |> String.concat " "

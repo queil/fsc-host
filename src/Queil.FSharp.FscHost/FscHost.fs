@@ -235,6 +235,37 @@ module CompilerHost =
     open Internals
     open Queil.FSharp.DependencyManager.Paket
 
+    let acquireLock (lockFilePath: string) (timeout: TimeSpan) (log: string -> unit) : Async<IDisposable> =
+
+        let stopwatch = Diagnostics.Stopwatch.StartNew()
+        let mutable stream = None
+
+        async {
+
+            while stream.IsNone && stopwatch.Elapsed < timeout do
+                try
+                    let fs =
+                        new FileStream(lockFilePath, FileMode.Create, FileAccess.Write, FileShare.None)
+
+                    stream <- Some fs
+                with :? IOException ->
+                    log $"Waiting to acquire lock on {lockFilePath}"
+                    do! Async.Sleep 1000
+
+            match stream with
+            | Some fs ->
+                return
+                    { new IDisposable with
+                        member _.Dispose() = fs.Dispose() }
+            | None ->
+                raise (TimeoutException $"Could not acquire lock on {lockFilePath} within {timeout}")
+
+                return
+                    { new IDisposable with
+                        member _.Dispose() = () }
+        }
+
+
     let getAssembly (options: Options) (script: Script) : Async<CompileOutput> =
 
         let log = options.Logger |> Option.defaultValue ignore
@@ -261,6 +292,8 @@ module CompilerHost =
             Directory.CreateDirectory ctx.OutputVersionDir |> ignore
 
             let cacheDepsFilePath = Path.Combine(ctx.OutputVersionDir, Const.FschDeps)
+
+            use! _lock = acquireLock $"{ctx.OutputVersionDir}/.fsch.lock" (TimeSpan.FromMinutes 1.0) log
 
             let! metadataResult =
                 async {

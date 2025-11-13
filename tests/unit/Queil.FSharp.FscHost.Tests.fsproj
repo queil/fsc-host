@@ -5,6 +5,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <GenerateProgramFile>false</GenerateProgramFile>
     <NoWarn>NU1608</NoWarn>
+    <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
+    <DisableImplicitLibraryPacksFolder>true</DisableImplicitLibraryPacksFolder>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,7 +24,7 @@
     <PackageReference Include="Expecto" Version="10.*" />
     <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.*" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.*" />
-    <PackageReference Update="FSharp.Core" Version="[10.0.100-rc2.25502.107]" />
+    <PackageReference Update="FSharp.Core" Version="[10.0.100]" />
   </ItemGroup>
 
   <ItemGroup>

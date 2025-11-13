@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net10.0</TargetFrameworks>
+    <TargetFramework>net10.0</TargetFramework>
     <Authors>queil</Authors>
     <Description>Extend your F# apps with F# scripts</Description>
     <Copyright>2021 - 2025 © queil</Copyright>
@@ -13,6 +13,8 @@
     <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>NU1608</NoWarn>
+    <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
+    <DisableImplicitLibraryPacksFolder>true</DisableImplicitLibraryPacksFolder>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,8 +26,8 @@
   </ItemGroup>
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'net10.0' ">
-    <PackageReference Include="FSharp.Compiler.Service" Version="[43.10.100-rc2.25502.107]" />
-    <PackageReference Update="FSharp.Core" Version="[10.0.100-rc2.25502.107]" />
+    <PackageReference Include="FSharp.Compiler.Service" Version="[43.10.100]" />
+    <PackageReference Update="FSharp.Core" Version="[10.0.100]" />
   </ItemGroup>
 
   <ItemGroup>

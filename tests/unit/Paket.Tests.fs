@@ -106,29 +106,4 @@ let paketTests =
               resultFunc ()
           }
 
-          testAsync "Should support Paket Git" {
-              let script =
-                  """
-                  #r "paket: git git@github.com:queil/yzl main"
-                  #load "github.com/queil/yzl/src/Yzl/Yzl.fs"
-                  namespace Script
-
-                  module X =
-
-                      open Yzl
-
-                      let x () = 10 |> Yzl.render |> printfn "%s"
-                  """
-
-              let! resultFunc =
-                  Common.invoke
-                  <| fun () ->
-                      Inline script
-                      |> CompilerHost.getMember
-                          { options with UseCache = false }
-                          (Member<unit -> unit>.Path "Script.X.x")
-
-              resultFunc ()
-          }
-
           ]

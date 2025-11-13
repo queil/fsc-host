@@ -1,24 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <NoWarn>NU1608</NoWarn>
+    <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
+    <DisableImplicitLibraryPacksFolder>true</DisableImplicitLibraryPacksFolder>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Queil.FSharp.Hashing\Queil.FSharp.Hashing.fsproj" />
   </ItemGroup>
 
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net8.0' ">
-    <PackageReference Include="Paket.Core" Version="[9.0.2]" />
-    <PackageReference Update="FSharp.Core" Version="[8.0.403]" />
-  </ItemGroup>
-
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net9.0' ">
-    <PackageReference Include="Paket.Core" Version="[9.0.2]" />
-    <PackageReference Update="FSharp.Core" Version="[9.0.303]" />
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net10.0' ">
+    <PackageReference Include="Paket.Core" Version="[10.0.0-alpha011]" />
+    <PackageReference Update="FSharp.Core" Version="[10.0.100]" />
   </ItemGroup>
 
   <ItemGroup>

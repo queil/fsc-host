@@ -303,7 +303,14 @@ module CompilerHost =
                             let source = File.ReadAllText ctx.FilePath |> SourceText.ofString
 
                             let! projOptions, errors =
-                                checker.GetProjectOptionsFromScript(ctx.FilePath, source, previewEnabled = true)
+                                checker.GetProjectOptionsFromScript(
+                                    ctx.FilePath,
+                                    source,
+                                    previewEnabled = true,
+                                    otherFlags =
+                                        [| for s in options.Compiler.Symbols do
+                                               $"--define:%s{s}" |]
+                                )
 
                             match errors with
                             | [] ->

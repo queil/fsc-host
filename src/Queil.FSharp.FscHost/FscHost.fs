@@ -103,7 +103,8 @@ type ScriptContext =
     { FilePath: string
       Dir: string
       OutputRootDir: string
-      OutputVersionDir: string }
+      OutputVersionDir: string
+      LockFilePath: string }
 
 type Options =
     { Compiler: CompilerOptions
@@ -140,18 +141,20 @@ module CompilerHost =
                     { FilePath = path
                       Dir = scriptDir
                       OutputRootDir = hashes.HashedScriptDir outputRootDir
-                      OutputVersionDir = hashes.HashedScriptVersionDir outputRootDir }
+                      OutputVersionDir = hashes.HashedScriptVersionDir outputRootDir 
+                      LockFilePath = Path.Combine(Path.GetTempPath(), Const.FschDir, "lock", hashes.DirHash + ".lock") }
 
                 | Inline body ->
                     let shallowHash = body |> Hash.sha256 |> Hash.short
-                    let scriptDir = Path.Combine(outputRootDir, shallowHash)
+                    let scriptDir = Path.Combine(outputRootDir, "__inline", shallowHash)
                     let filePath = Path.Combine(scriptDir, Const.InlineFsx)
                     let hashes = (filePath, Some shallowHash) ||> Hash.fileHash
 
                     { FilePath = filePath
                       Dir = scriptDir
                       OutputRootDir = hashes.HashedScriptDir outputRootDir
-                      OutputVersionDir = hashes.HashedScriptVersionDir outputRootDir }
+                      OutputVersionDir = hashes.HashedScriptVersionDir outputRootDir
+                      LockFilePath = Path.Combine(Path.GetTempPath(), Const.FschDir, "lock", hashes.DirHash + ".lock") }
 
 
             let createInlineScriptFile (filePath: string) =
@@ -234,21 +237,30 @@ module CompilerHost =
 
     open Internals
     open Queil.FSharp.DependencyManager.Paket
+    open System.Text.Json
+    open System.Text.Json.Serialization
 
-    let acquireLock (lockFilePath: string) (timeout: TimeSpan) (log: string -> unit) : Async<IDisposable> =
+    let acquireLock (lockFilePath: string) (timeout: TimeSpan) (log: string -> unit) (config: Configuration) : Async<IDisposable> =
 
         let stopwatch = Diagnostics.Stopwatch.StartNew()
+        let jsonOptions = JsonSerializerOptions()
+        jsonOptions.WriteIndented <- true
+        jsonOptions.DefaultIgnoreCondition <- JsonIgnoreCondition.WhenWritingDefault
         let mutable stream = None
 
         async {
 
             while stream.IsNone && stopwatch.Elapsed < timeout do
                 try
+                    FileInfo lockFilePath |> _.DirectoryName |> Directory.CreateDirectory |> ignore
                     let fs =
-                        new FileStream(lockFilePath, FileMode.Create, FileAccess.Write, FileShare.None)
+                        new FileStream(lockFilePath, FileMode.Create, FileAccess.Write, FileShare.Read)
 
+                    do! JsonSerializer.SerializeAsync(fs, config, jsonOptions ) |> Async.AwaitTask
+                    do! fs.FlushAsync() |> Async.AwaitTask
                     stream <- Some fs
-                with :? IOException ->
+                with :? IOException as exn ->
+                    log exn.Message
                     log $"Waiting to acquire lock on {lockFilePath}"
                     do! Async.Sleep 1000
 
@@ -257,8 +269,8 @@ module CompilerHost =
                 return
                     { new IDisposable with
                         member _.Dispose() =
-                            fs.Dispose()
-                            File.Delete lockFilePath }
+                            fs.Dispose() }
+                            //File.Delete lockFilePath }
             | None ->
                 raise (TimeoutException $"Could not acquire lock on {lockFilePath} within {timeout}")
 
@@ -278,14 +290,7 @@ module CompilerHost =
             log $"Root file path: %s{ctx.FilePath}"
             log $"Script dir: %s{ctx.Dir}"
             log $"Cache dir: %s{ctx.OutputVersionDir}"
-
-            Configure.update ctx.FilePath (fun c ->
-                { c with
-                    OutputRootDir = options.OutputDir
-                    Verbose = options.Verbose
-                    Logger = options.Logger
-                    ScriptOutputRootDir = Some ctx.OutputRootDir
-                    ScriptOutputVersionDir = Some ctx.OutputVersionDir })
+            log $"Lock file: %s{ctx.LockFilePath}"
 
             match script with
             | Inline _ -> Directory.CreateDirectory ctx.Dir |> ignore
@@ -295,7 +300,18 @@ module CompilerHost =
 
             let cacheDepsFilePath = Path.Combine(ctx.OutputVersionDir, Const.FschDeps)
 
-            use! _lock = acquireLock $"{ctx.OutputVersionDir}/.fsch.lock" (TimeSpan.FromMinutes 1.0) log
+            let lockContent =
+                { Configuration.Default with
+                    RootScriptFilePath = Some ctx.FilePath
+                    OutputRootDir = options.OutputDir
+                    Verbose = options.Verbose
+                    IsDefault = false
+                    //Logger = options.Logger
+
+                    ScriptOutputRootDir = Some ctx.OutputRootDir
+                    ScriptOutputVersionDir = Some ctx.OutputVersionDir }
+
+            use! _lock = acquireLock ctx.LockFilePath (TimeSpan.FromMinutes 1.0) log lockContent
 
             let! metadataResult =
                 async {

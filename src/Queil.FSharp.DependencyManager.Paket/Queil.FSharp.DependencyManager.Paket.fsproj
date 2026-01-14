@@ -15,7 +15,7 @@
 
   <ItemGroup Condition=" '$(TargetFramework)' == 'net10.0' ">
     <PackageReference Include="Paket.Core" Version="[10.0.0-alpha011]" />
-    <PackageReference Update="FSharp.Core" Version="[10.0.100]" />
+    <PackageReference Update="FSharp.Core" Version="[10.0.102]" />
   </ItemGroup>
 
   <ItemGroup>

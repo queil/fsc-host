@@ -97,7 +97,7 @@ let cacheTests =
 
               let content = "let plugin = Some 10"
               let shallowHash = content |> Hash.sha256 |> Hash.short
-              let scriptDir = Path.Combine(tmpPath, shallowHash)
+              let scriptDir = Path.Combine(tmpPath, "__inline", shallowHash)
               let filePath = Path.Combine(scriptDir, "inline.fsx")
               let hashes = (filePath, Some shallowHash) ||> Hash.fileHash
 

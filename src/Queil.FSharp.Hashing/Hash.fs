@@ -8,6 +8,7 @@ open System.Threading
 
 type FileHash =
     { PathHash: string
+      DirHash: string
       ContentHash: string }
 
     member x.HashedScriptDir(rootDir: string) = Path.Combine(rootDir, x.PathHash)
@@ -44,6 +45,7 @@ module Hash =
 
     let fileHash (path: string) (contentHash: string option) =
         { PathHash = path |> sha256 |> short
+          DirHash = path |> Path.GetDirectoryName |> sha256 |> short
           ContentHash =
             contentHash
             |> Option.defaultWith (fun () -> path |> File.ReadAllText |> sha256 |> short) }

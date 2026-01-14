@@ -43,6 +43,7 @@ let cacheTests =
                       file rootScriptName
                       cache true
                       log System.Console.WriteLine
+                      output_dir "/tmp/.fsch-tests"
                   }
 
               let sw = Stopwatch.StartNew()
@@ -72,6 +73,7 @@ let cacheTests =
                       dir scriptDir
                       file rootScriptName
                       cache true
+                      output_dir "/tmp/.fsch-tests"
                   }
 
               let! firstResult = plugin ()

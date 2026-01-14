@@ -7,6 +7,7 @@ module Common =
     let options =
         { Options.Default with
             UseCache = true
+            OutputDir = "/tmp/.fsch-tests"
             Logger = Some(printfn "%s") }
 
     let invoke<'a> (func: unit -> 'a) : 'a =

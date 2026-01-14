@@ -256,7 +256,9 @@ module CompilerHost =
             | Some fs ->
                 return
                     { new IDisposable with
-                        member _.Dispose() = fs.Dispose() }
+                        member _.Dispose() =
+                            fs.Dispose()
+                            File.Delete lockFilePath }
             | None ->
                 raise (TimeoutException $"Could not acquire lock on {lockFilePath} within {timeout}")
 
@@ -341,6 +343,7 @@ module CompilerHost =
                                                     |> Seq.map (function
                                                         | p when Path.IsPathRooted p -> p
                                                         | p -> Path.GetFullPath(Path.Combine(ctx.Dir, p)))
+                                                    |> Seq.distinct
                                                     |> Seq.toList }
                             | errors -> return Error errors
                         }

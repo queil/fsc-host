@@ -97,6 +97,7 @@ type ScriptCache =
     member cache.Save() =
         [ yield! cache.SourceFiles |> Seq.map (fun v -> $"s#{v}")
           yield! cache.References |> Seq.map (fun v -> $"n#{v}") ]
+        |> Seq.sort 
         |> fun lines -> File.WriteAllLines(cache.FilePath, lines)
 
 type ScriptContext =
@@ -142,7 +143,7 @@ module CompilerHost =
                       Dir = scriptDir
                       OutputRootDir = hashes.HashedScriptDir outputRootDir
                       OutputVersionDir = hashes.HashedScriptVersionDir outputRootDir 
-                      LockFilePath = Path.Combine(Path.GetTempPath(), Const.FschDir, "lock", hashes.DirHash + ".lock") }
+                      LockFilePath = Path.Combine(Path.GetTempPath(), Const.FschDir, "lock", Hash.shortHash scriptDir + ".lock") }
 
                 | Inline body ->
                     let shallowHash = body |> Hash.sha256 |> Hash.short
@@ -154,7 +155,7 @@ module CompilerHost =
                       Dir = scriptDir
                       OutputRootDir = hashes.HashedScriptDir outputRootDir
                       OutputVersionDir = hashes.HashedScriptVersionDir outputRootDir
-                      LockFilePath = Path.Combine(Path.GetTempPath(), Const.FschDir, "lock", hashes.DirHash + ".lock") }
+                      LockFilePath = Path.Combine(Path.GetTempPath(), Const.FschDir, "lock", Hash.shortHash scriptDir + ".lock") }
 
 
             let createInlineScriptFile (filePath: string) =

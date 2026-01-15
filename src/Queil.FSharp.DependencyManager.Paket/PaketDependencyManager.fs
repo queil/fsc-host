@@ -93,8 +93,8 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
             timeout: int
         ) : obj =
 
-        let hashes = Hash.fileHash scriptName None
-        let lockFilePath = Path.Combine(Path.GetTempPath(), ".fsch", "lock", hashes.DirHash + ".lock")
+        let dirHash = Hash.shortHash scriptDir 
+        let lockFilePath = Path.Combine(Path.GetTempPath(), ".fsch", "lock", dirHash + ".lock")
        
         let config = Configure.render lockFilePath
         let log = printfn "%s"//config.Logger |> Option.defaultValue ignore
@@ -124,7 +124,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
         let workDir =
             config.ScriptOutputRootDir
             |> Option.defaultWith (fun () ->
-                //let hashes = Hash.fileHash scriptName None
+                let hashes = Hash.fileHash scriptName None
                 hashes.HashedScriptDir config.OutputRootDir)
 
         let resultCacheDir = Path.Combine(workDir, "resolve-cache")

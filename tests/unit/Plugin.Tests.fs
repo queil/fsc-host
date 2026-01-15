@@ -18,6 +18,7 @@ let ceTests =
                   plugin<string option> {
                       body """let plugin = Some "test971" """
                       log (fun s -> printfn $"%s{s}")
+                      output_dir "/tmp/.fsch-tests"
                   }
 
               let result = "Some string expected" |> Expect.wantSome plugin
@@ -30,6 +31,7 @@ let ceTests =
                       body """let plugin = Some "test971" """
                       cache true
                       log (fun s -> printfn $"%s{s}")
+                      output_dir "/tmp/.fsch-tests"
                   }
 
               let result = "Some string expected" |> Expect.wantSome plugin
@@ -49,6 +51,7 @@ module OtherPlugin =
 
                       cache true
                       log (fun s -> printfn $"%s{s}")
+                      output_dir "/tmp/.fsch-tests"
                   }
 
               let result = "Some string expected" |> Expect.wantSome plugin
@@ -67,6 +70,7 @@ module OtherPlugin =
                       dir tmpDir
                       file "plugin.builder.file.fsx"
                       cache true
+                      output_dir "/tmp/.fsch-tests"
                       compiler (fun x -> { x with LangVersion = Some "preview" })
                   }
 
@@ -87,6 +91,7 @@ module OtherPlugin =
                       file "plugin.builder.binding.file.fsx"
                       binding "export"
                       cache true
+                      output_dir "/tmp/.fsch-tests"
                       compiler (fun x -> { x with LangVersion = Some "preview" })
                   }
 

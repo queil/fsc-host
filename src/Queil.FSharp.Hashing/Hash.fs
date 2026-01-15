@@ -42,8 +42,10 @@ module Hash =
 
         short combinedHash
 
+    let shortHash = sha256 >> short
+
     let fileHash (path: string) (contentHash: string option) =
-        { PathHash = path |> sha256 |> short
+        { PathHash = path |> shortHash
           ContentHash =
             contentHash
-            |> Option.defaultWith (fun () -> path |> File.ReadAllText |> sha256 |> short) }
+            |> Option.defaultWith (fun () -> path |> File.ReadAllText |> shortHash) }

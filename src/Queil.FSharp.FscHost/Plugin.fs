@@ -120,4 +120,4 @@ module Plugin =
 
     /// Compiles an F# script either defined by 'body' or 'load'
     /// If multiple bindings are found it extracts the value of the least nested one.
-    let plugin<'a> = Plugin<'a>(PluginOptions.Default)
+    let plugin<'a> = Plugin<'a> PluginOptions.Default

@@ -270,8 +270,8 @@ module CompilerHost =
                 return
                     { new IDisposable with
                         member _.Dispose() =
-                            fs.Dispose() }
-                            //File.Delete lockFilePath }
+                            fs.Dispose()
+                            File.Delete lockFilePath }
             | None ->
                 raise (TimeoutException $"Could not acquire lock on {lockFilePath} within {timeout}")
 
@@ -307,8 +307,6 @@ module CompilerHost =
                     OutputRootDir = options.OutputDir
                     Verbose = options.Verbose
                     IsDefault = false
-                    //Logger = options.Logger
-
                     ScriptOutputRootDir = Some ctx.OutputRootDir
                     ScriptOutputVersionDir = Some ctx.OutputVersionDir }
 

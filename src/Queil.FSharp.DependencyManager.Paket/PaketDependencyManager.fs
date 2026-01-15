@@ -97,7 +97,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
         let lockFilePath = Path.Combine(Path.GetTempPath(), ".fsch", "lock", dirHash + ".lock")
        
         let config = Configure.render lockFilePath
-        let log = printfn "%s"//config.Logger |> Option.defaultValue ignore
+        let log = if config.Verbose then printfn "%s" else ignore
         log $"Maybe config at {lockFilePath}"
         if config.IsDefault then
             log "Using default config"

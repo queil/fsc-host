@@ -19,7 +19,10 @@ let paketTests =
 
           let prepareScripts () =
               let tmpPath =
-                  Path.Combine(Path.GetTempPath(), "fsch-paket-tests", Path.GetRandomFileName())
+                  Path.Combine(Path.GetTempPath(), "fsch-paket-tests", "static")
+
+              let tmpPath2 =
+                  Path.Combine(Path.GetTempPath(), "fsch-paket-tests", "static2")
 
               Directory.CreateDirectory tmpPath |> ignore
               let scriptDir = tmpPath
@@ -27,14 +30,15 @@ let paketTests =
               let rootScriptPath = Path.Combine(scriptDir, rootScriptName)
               let fileA = Path.Combine(scriptDir, "depa.fsx")
               let fileB = Path.Combine(scriptDir, "depb", "depb.fsx")
+              let fileC = Path.Combine(tmpPath2, "depc.fsx")
 
               [ $""" #r  "paket: nuget Yzl >= 1.0.0" ;#load "%s{fileB.Replace(@"\", @"\\")}" """
                 """let valueA = 11""" ]
               |> asScript fileA
+              [ "let a = 0"] |> asScript fileC
+              [ $""" #load "%s{fileC.Replace(@"\", @"\\")}"; let valueB = 13""" ] |> asScript fileB
 
-              [ """let valueB = 13""" ] |> asScript fileB
-
-              [ $""" #r  "paket: nuget Yzl >= 2.0.0" ; #load "%s{fileA.Replace(@"\", @"\\")}" """
+              [ $""" #r  "paket: nuget Yzl >= 2.0.0" ;#r  "paket: nuget Arquidev.Fetch >= 1.0.0"; #load "%s{fileA.Replace(@"\", @"\\")}" """
                 """let plugin = Some (Depa.valueA * Depb.valueB) """ ]
               |> asScript rootScriptPath
 

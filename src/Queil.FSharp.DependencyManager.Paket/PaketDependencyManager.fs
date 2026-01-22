@@ -36,40 +36,28 @@ type ResolveDependenciesResult
 type Configuration =
     { IsDefault: bool
       Verbose: bool
-      Logger: (string -> unit) option
+      //Logger: (string -> unit) option
+      RootScriptFilePath: string option
       OutputRootDir: string
       ScriptOutputRootDir: string option
       ScriptOutputVersionDir: string option }
 
     static member Default =
         { IsDefault = true
+          RootScriptFilePath = None
           Verbose = false
-          Logger = None
+          //Logger = None
           OutputRootDir = Path.Combine(Path.GetTempPath(), ".fsch")
           ScriptOutputRootDir = None
           ScriptOutputVersionDir = None }
 
 module Configure =
 
-    let private data: ConcurrentDictionary<string, Configuration> =
-        ConcurrentDictionary<string, Configuration>()
-
-    let update (key: string) (update: Configuration -> Configuration) : unit =
-
-        data.AddOrUpdate(
-            key,
-            (fun _ ->
-                { update Configuration.Default with
-                    IsDefault = false }),
-            (fun _ old -> { update old with IsDefault = false })
-        )
-
-        |> ignore
-
     let internal render key =
-        let exists, value = data.TryGetValue key
-        if exists then value else Configuration.Default
-
+        if File.Exists key then
+            File.ReadAllText key |> JsonSerializer.Deserialize<Configuration> |> Option.ofObj |> _.Value
+        else
+          Configuration.Default
 
 [<RequireQualifiedAccess>]
 module PaketPaths =
@@ -93,7 +81,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
     member _.ClearResultsCache = fun () -> resultCache.Clear()
 
-    /// This method gets called by fsch twice. First for GetProjectOptionsFromScript, then for the actual compile
+    /// This method gets called by fsch multiple times. First for GetProjectOptionsFromScript (for each referenced script), then for the actual compile
     member _.ResolveDependencies
         (
             scriptDir: string,
@@ -105,9 +93,12 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
             timeout: int
         ) : obj =
 
-        let config = Configure.render scriptName
-        let log = config.Logger |> Option.defaultValue ignore
-
+        let dirHash = Hash.shortHash scriptDir 
+        let lockFilePath = Path.Combine(Path.GetTempPath(), ".fsch", "lock", dirHash + ".lock")
+       
+        let config = Configure.render lockFilePath
+        let log = if config.Verbose then printfn "%s" else ignore
+        log $"Maybe config at {lockFilePath}"
         if config.IsDefault then
             log "Using default config"
         else
@@ -138,16 +129,15 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
         let resultCacheDir = Path.Combine(workDir, "resolve-cache")
 
-        Directory.CreateDirectory resultCacheDir |> ignore
+        if Directory.Exists resultCacheDir then
+            Directory.EnumerateFiles resultCacheDir
+            |> Seq.map (fun f -> Path.GetFileNameWithoutExtension f |> Option.ofObj |> _.Value, File.ReadAllText f)
+            |> Seq.iter (fun (key : string, content) ->
+                let entry = JsonSerializer.Deserialize<ResolveDependenciesResult> content
 
-        Directory.EnumerateFiles resultCacheDir
-        |> Seq.map (fun f -> Path.GetFileNameWithoutExtension f, File.ReadAllText f)
-        |> Seq.iter (fun (key, content) ->
-            let entry = JsonSerializer.Deserialize<ResolveDependenciesResult> content
-
-            match entry with
-            | null -> ()
-            | validEntry -> resultCache.TryAdd(key, validEntry) |> ignore)
+                match entry with
+                | null -> ()
+                | validEntry -> resultCache.TryAdd(key, validEntry) |> ignore)
 
         let mutable isCached = true
         let cacheKey = getCacheKey packageManagerTextLines tfm runtimeIdentifier
@@ -247,6 +237,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
                             if result.Success then
                                 let serialized = JsonSerializer.Serialize result
+                                Directory.CreateDirectory resultCacheDir |> ignore
                                 let resultCachePath = Path.Combine(resultCacheDir, $"{cacheKey}.json")
                                 File.WriteAllText(resultCachePath, serialized)
                                 log $"Saving resolve result to: {resultCachePath}"

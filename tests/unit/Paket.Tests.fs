@@ -18,11 +18,9 @@ let paketTests =
               File.WriteAllLines(filePath, lines |> Seq.toArray)
 
           let prepareScripts () =
-              let tmpPath =
-                  Path.Combine(Path.GetTempPath(), "fsch-paket-tests", "static")
+              let tmpPath = Path.Combine(Path.GetTempPath(), "fsch-paket-tests", "static")
 
-              let tmpPath2 =
-                  Path.Combine(Path.GetTempPath(), "fsch-paket-tests", "static2")
+              let tmpPath2 = Path.Combine(Path.GetTempPath(), "fsch-paket-tests", "static2")
 
               Directory.CreateDirectory tmpPath |> ignore
               let scriptDir = tmpPath
@@ -35,8 +33,11 @@ let paketTests =
               [ $""" #r  "paket: nuget Yzl >= 1.0.0" ;#load "%s{fileB.Replace(@"\", @"\\")}" """
                 """let valueA = 11""" ]
               |> asScript fileA
-              [ "let a = 0"] |> asScript fileC
-              [ $""" #load "%s{fileC.Replace(@"\", @"\\")}"; let valueB = 13""" ] |> asScript fileB
+
+              [ "let a = 0" ] |> asScript fileC
+
+              [ $""" #load "%s{fileC.Replace(@"\", @"\\")}"; let valueB = 13""" ]
+              |> asScript fileB
 
               [ $""" #r  "paket: nuget Yzl >= 2.0.0" ;#r  "paket: nuget Arquidev.Fetch >= 1.0.0"; #load "%s{fileA.Replace(@"\", @"\\")}" """
                 """let plugin = Some (Depa.valueA * Depb.valueB) """ ]

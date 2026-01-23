@@ -97,7 +97,7 @@ type ScriptCache =
     member cache.Save() =
         [ yield! cache.SourceFiles |> Seq.map (fun v -> $"s#{v}")
           yield! cache.References |> Seq.map (fun v -> $"n#{v}") ]
-        |> Seq.sort 
+        |> Seq.sort
         |> fun lines -> File.WriteAllLines(cache.FilePath, lines)
 
 type ScriptContext =
@@ -142,8 +142,9 @@ module CompilerHost =
                     { FilePath = path
                       Dir = scriptDir
                       OutputRootDir = hashes.HashedScriptDir outputRootDir
-                      OutputVersionDir = hashes.HashedScriptVersionDir outputRootDir 
-                      LockFilePath = Path.Combine(Path.GetTempPath(), Const.FschDir, "lock", Hash.shortHash scriptDir + ".lock") }
+                      OutputVersionDir = hashes.HashedScriptVersionDir outputRootDir
+                      LockFilePath =
+                        Path.Combine(Path.GetTempPath(), Const.FschDir, "lock", Hash.shortHash scriptDir + ".lock") }
 
                 | Inline body ->
                     let shallowHash = body |> Hash.sha256 |> Hash.short
@@ -155,7 +156,8 @@ module CompilerHost =
                       Dir = scriptDir
                       OutputRootDir = hashes.HashedScriptDir outputRootDir
                       OutputVersionDir = hashes.HashedScriptVersionDir outputRootDir
-                      LockFilePath = Path.Combine(Path.GetTempPath(), Const.FschDir, "lock", Hash.shortHash scriptDir + ".lock") }
+                      LockFilePath =
+                        Path.Combine(Path.GetTempPath(), Const.FschDir, "lock", Hash.shortHash scriptDir + ".lock") }
 
 
             let createInlineScriptFile (filePath: string) =
@@ -241,7 +243,12 @@ module CompilerHost =
     open System.Text.Json
     open System.Text.Json.Serialization
 
-    let acquireLock (lockFilePath: string) (timeout: TimeSpan) (log: string -> unit) (config: Configuration) : Async<IDisposable> =
+    let acquireLock
+        (lockFilePath: string)
+        (timeout: TimeSpan)
+        (log: string -> unit)
+        (config: Configuration)
+        : Async<IDisposable> =
 
         let stopwatch = Diagnostics.Stopwatch.StartNew()
         let jsonOptions = JsonSerializerOptions()
@@ -254,10 +261,11 @@ module CompilerHost =
             while stream.IsNone && stopwatch.Elapsed < timeout do
                 try
                     FileInfo lockFilePath |> _.DirectoryName |> Directory.CreateDirectory |> ignore
+
                     let fs =
                         new FileStream(lockFilePath, FileMode.Create, FileAccess.Write, FileShare.Read)
 
-                    do! JsonSerializer.SerializeAsync(fs, config, jsonOptions ) |> Async.AwaitTask
+                    do! JsonSerializer.SerializeAsync(fs, config, jsonOptions) |> Async.AwaitTask
                     do! fs.FlushAsync() |> Async.AwaitTask
                     stream <- Some fs
                 with :? IOException as exn ->

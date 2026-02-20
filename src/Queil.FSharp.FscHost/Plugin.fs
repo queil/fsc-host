@@ -42,7 +42,7 @@ module Plugin =
 
                 let candidateTypes =
                     output.Assembly.Value.GetTypes()
-                    |> Seq.sortBy (fun typ -> typ.FullName.Split('+', '.').Length)
+                    |> Seq.sortBy _.FullName.Split('+', '.').Length
                     |> Seq.tryFind (fun typ ->
                         match typ.GetMember(state.State.bindingName) |> Seq.toList with
                         | [] -> false

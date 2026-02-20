@@ -1,40 +1,17 @@
 namespace Queil.FSharp.DependencyManager.Paket
 
+open System.Collections.Concurrent
 open Queil.FSharp.FscHost.Configuration
 open Queil.FSharp.Hashing
 open System
 open System.IO
 open Paket
-open System.Collections.Concurrent
 open System.Text.Json
 open Paket.Domain
-
-[<AttributeUsage(AttributeTargets.Assembly ||| AttributeTargets.Class, AllowMultiple = false)>]
-type DependencyManagerAttribute() =
-    inherit Attribute()
 
 module Attributes =
     [<assembly: DependencyManager>]
     do ()
-
-type ResolveDependenciesResult
-    (
-        success: bool,
-        stdOut: string array,
-        stdError: string array,
-        resolutions: string seq,
-        sourceFiles: string seq,
-        roots: string seq
-    ) =
-
-    member _.Success = success
-    member _.StdOut = stdOut
-    member _.StdError = stdError
-    member _.Resolutions = resolutions
-    member _.SourceFiles = sourceFiles
-    member _.Roots = roots
-
-
 
 [<RequireQualifiedAccess>]
 module PaketPaths =

@@ -1,7 +1,29 @@
 ﻿namespace Queil.FSharp.FscHost.Configuration
 
+open System
 open System.IO
 open System.Text.Json
+
+[<AttributeUsage(AttributeTargets.Assembly ||| AttributeTargets.Class, AllowMultiple = false)>]
+type DependencyManagerAttribute() =
+    inherit Attribute()
+
+type ResolveDependenciesResult
+    (
+        success: bool,
+        stdOut: string array,
+        stdError: string array,
+        resolutions: string seq,
+        sourceFiles: string seq,
+        roots: string seq
+    ) =
+
+    member _.Success = success
+    member _.StdOut = stdOut
+    member _.StdError = stdError
+    member _.Resolutions = resolutions
+    member _.SourceFiles = sourceFiles
+    member _.Roots = roots
 
 type Configuration =
     { IsDefault: bool

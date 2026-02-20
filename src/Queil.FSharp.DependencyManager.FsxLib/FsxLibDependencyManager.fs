@@ -3,34 +3,12 @@ namespace Queil.FSharp.DependencyManager.FsxLib
 open Queil.FSharp.FscHost
 open Queil.FSharp.FscHost.Configuration
 open Queil.FSharp.Hashing
-open System
 open System.IO
 open System.Collections.Concurrent
-
-[<AttributeUsage(AttributeTargets.Assembly ||| AttributeTargets.Class, AllowMultiple = false)>]
-type DependencyManagerAttribute() =
-    inherit Attribute()
 
 module Attributes =
     [<assembly: DependencyManager>]
     do ()
-
-type ResolveDependenciesResult
-    (
-        success: bool,
-        stdOut: string array,
-        stdError: string array,
-        resolutions: string seq,
-        sourceFiles: string seq,
-        roots: string seq
-    ) =
-
-    member _.Success = success
-    member _.StdOut = stdOut
-    member _.StdError = stdError
-    member _.Resolutions = resolutions
-    member _.SourceFiles = sourceFiles
-    member _.Roots = roots
 
 [<DependencyManager>]
 type PaketDependencyManager(outputDirectory: string option, useResultsCache: bool) =

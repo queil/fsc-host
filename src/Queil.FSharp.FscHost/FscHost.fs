@@ -346,6 +346,11 @@ module CompilerHost =
                                         SourceFiles =
                                             projOptions.SourceFiles |> Seq.except [ ctx.FilePath ] |> Seq.toList }
 
+                                log "Other options:"
+
+                                for o in projOptions.OtherOptions do
+                                    log $"  %s{o}"
+                                
                                 log "Source files:"
 
                                 for sf in projOptions.SourceFiles do

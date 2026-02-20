@@ -57,7 +57,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
             let resolutions =
                 packageManagerTextLines
                 |> Seq.map (fun (_, v) ->
-                    let scriptPath = if Path.IsPathRooted v then v else Path.Combine(scriptDir, scriptName)
+                    let scriptPath = if Path.IsPathRooted v then v else Path.Combine(scriptDir, v)
                     let asm =
                         CompilerHost.getAssembly
                             { Options.Default with

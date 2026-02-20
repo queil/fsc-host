@@ -47,12 +47,15 @@ let FsxLibTests =
           testAsync "Smoke test (ID: 801)" {
               let scriptDir, rootScriptName, _, _ = prepareScripts ()
 
-              let! _ =
+              let! c =
                   Queil.FSharp.FscHost.File(Path.Combine(scriptDir, rootScriptName))
                   |> CompilerHost.getAssembly
                       { options with
                           UseCache = false
+                          AutoLoadNugetReferences = true
                           Verbose = true }
+
+              c.Assembly.Value |> ignore
 
               ()
           }

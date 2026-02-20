@@ -350,7 +350,7 @@ module CompilerHost =
 
                                 for o in projOptions.OtherOptions do
                                     log $"  %s{o}"
-                                
+
                                 log "Source files:"
 
                                 for sf in projOptions.SourceFiles do
@@ -363,16 +363,12 @@ module CompilerHost =
                                         Ok
                                             { metadata with
                                                 References =
-                                                    projOptions.SourceFiles
-                                                    |> Seq.collect File.ReadAllLines
+                                                    projOptions.OtherOptions
                                                     |> Seq.choose (function
-                                                        | Utils.ParseRegex """^#r @?"(.*\.dll)"\s?$""" [ dllPath ] ->
-                                                            Some dllPath
+                                                        | s when s.Contains "Microsoft.NETCore.App" -> None
+                                                        | s when s.EndsWith "FSharp.Core.dll" -> None
+                                                        | s when s.StartsWith "-r:" -> Some s[3..]
                                                         | _ -> None)
-                                                    |> Seq.map (function
-                                                        | p when Path.IsPathRooted p -> p
-                                                        | p -> Path.GetFullPath(Path.Combine(ctx.Dir, p)))
-                                                    |> Seq.distinct
                                                     |> Seq.toList }
                             | errors -> return Error errors
                         }

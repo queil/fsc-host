@@ -137,6 +137,13 @@ module CompilerHost =
                 function
                 | File path ->
                     let hashes = (path, None) ||> Hash.fileHash
+
+                    let path =
+                        if Path.IsPathRooted path then
+                            path
+                        else
+                            Path.GetFullPath path
+
                     let scriptDir = Path.GetDirectoryName path
 
                     { FilePath = path
@@ -212,14 +219,8 @@ module CompilerHost =
 
                     let refs = metadata.References |> Seq.map (sprintf "-r:%s") |> Seq.toList
 
-                    let absoluteRootFilePath =
-                        if Path.IsPathRooted rootFilePath then
-                            rootFilePath
-                        else
-                            Path.GetFullPath rootFilePath
-
                     let compilerArgs =
-                        [ yield! options.Compiler.Args absoluteRootFilePath refs options.Compiler
+                        [ yield! options.Compiler.Args rootFilePath refs options.Compiler
                           $"--out:{path}" ]
 
                     log (sprintf "Compiling with args: %s" (compilerArgs |> String.concat " "))

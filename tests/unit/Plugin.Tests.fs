@@ -4,7 +4,6 @@ open System.IO
 open Expecto
 open Queil.FSharp.FscHost.Plugin
 open Queil.FSharp.FscHost.Common
-open System
 
 [<Tests>]
 let ceTests =
@@ -71,6 +70,33 @@ module OtherPlugin =
                       file "plugin.builder.file.fsx"
                       cache true
                       output_dir "/tmp/.fsch-tests"
+                      compiler (fun x -> { x with LangVersion = Some "preview" })
+                  }
+
+              let result = "Some string expected" |> Expect.wantSome plugin
+              "String should be 'test971'" |> Expect.equal result "test971"
+          }
+
+          testAsync "File script (relative source dir, ID: 164)" {
+              let relativePath = Path.Combine(".fsch-override", Path.GetRandomFileName())
+              let tmpDir = Path.Combine(Path.GetTempPath(), relativePath)
+
+              Directory.CreateDirectory tmpDir |> ignore
+
+              let fileName = Path.Combine(tmpDir, "plugin.builder.file.fsx")
+              let lines = [ """let plugin = Some "test971" """ ]
+              File.WriteAllLines(fileName, lines)
+
+              use _ = new WorkingDir(Path.GetTempPath())
+
+              let! plugin =
+                  plugin<string option> {
+                      load
+                      dir relativePath
+                      file "plugin.builder.file.fsx"
+                      cache true
+                      output_dir "/tmp/.fsch-tests"
+                      log (printfn "%s")
                       compiler (fun x -> { x with LangVersion = Some "preview" })
                   }
 

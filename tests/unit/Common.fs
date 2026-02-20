@@ -4,6 +4,14 @@ open System.IO
 
 module Common =
 
+    type WorkingDir(workingDir: string) =
+        let originalDir = Directory.GetCurrentDirectory()
+        do Directory.SetCurrentDirectory workingDir
+
+        interface System.IDisposable with
+            member _.Dispose() : unit =
+                Directory.SetCurrentDirectory originalDir
+
     let options =
         { Options.Default with
             UseCache = true

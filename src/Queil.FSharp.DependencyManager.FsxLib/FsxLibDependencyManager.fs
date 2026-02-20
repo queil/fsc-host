@@ -50,18 +50,20 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
             printfn $"FSXLIB: %A{config}"
 
-            printfn $"FSXLIB: %s{scriptName}"
+            printfn $"FSXLIB: script name - %s{scriptName}"
+            printfn $"FSXLIB: script dir - %s{scriptDir}"
             printfn $"FSXLIB: %A{packageManagerTextLines}"
 
             let resolutions =
                 packageManagerTextLines
                 |> Seq.map (fun (_, v) ->
+                    let scriptPath = if Path.IsPathRooted v then v else Path.Combine(scriptDir, scriptName)
                     let asm =
                         CompilerHost.getAssembly
                             { Options.Default with
                                 UseCache = true
                                 Verbose = config.Verbose }
-                            (Queil.FSharp.FscHost.File(v))
+                            (Queil.FSharp.FscHost.File(scriptPath))
                         |> Async.RunSynchronously
 
                     asm.AssemblyFilePath)
@@ -75,4 +77,4 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
         with e ->
             eprintfn $"{e.ToString()}"
-            ResolveDependenciesResult(false, [||], [| "FsxLib: " + e.Message |], [], [], [])
+            ResolveDependenciesResult(false, [||], [| "FSXLIB: " + e.Message |], [], [], [])

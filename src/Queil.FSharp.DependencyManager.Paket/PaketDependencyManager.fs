@@ -1,5 +1,6 @@
 namespace Queil.FSharp.DependencyManager.Paket
 
+open Queil.FSharp.FscHost.Configuration
 open Queil.FSharp.Hashing
 open System
 open System.IO
@@ -33,32 +34,7 @@ type ResolveDependenciesResult
     member _.SourceFiles = sourceFiles
     member _.Roots = roots
 
-type Configuration =
-    { IsDefault: bool
-      Verbose: bool
-      RootScriptFilePath: string option
-      OutputRootDir: string
-      ScriptOutputRootDir: string option
-      ScriptOutputVersionDir: string option }
 
-    static member Default =
-        { IsDefault = true
-          RootScriptFilePath = None
-          Verbose = false
-          OutputRootDir = Path.Combine(Path.GetTempPath(), ".fsch")
-          ScriptOutputRootDir = None
-          ScriptOutputVersionDir = None }
-
-module Configure =
-
-    let internal render key =
-        if File.Exists key then
-            File.ReadAllText key
-            |> JsonSerializer.Deserialize<Configuration>
-            |> Option.ofObj
-            |> _.Value
-        else
-            Configuration.Default
 
 [<RequireQualifiedAccess>]
 module PaketPaths =

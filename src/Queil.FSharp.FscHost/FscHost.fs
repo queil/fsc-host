@@ -1,5 +1,6 @@
 namespace Queil.FSharp.FscHost
 
+open Queil.FSharp.FscHost.Configuration
 open Queil.FSharp.Hashing
 open System.Runtime.Loader
 open FSharp.Compiler.CodeAnalysis
@@ -240,7 +241,6 @@ module CompilerHost =
             }
 
     open Internals
-    open Queil.FSharp.DependencyManager.Paket
     open System.Text.Json
     open System.Text.Json.Serialization
 

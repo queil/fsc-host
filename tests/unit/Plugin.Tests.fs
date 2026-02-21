@@ -95,6 +95,7 @@ module OtherPlugin =
                       dir relativePath
                       file "plugin.builder.file.fsx"
                       cache true
+                      content_addressable_cache true
                       output_dir "/tmp/.fsch-tests"
                       log (printfn "%s")
                       compiler (fun x -> { x with LangVersion = Some "preview" })

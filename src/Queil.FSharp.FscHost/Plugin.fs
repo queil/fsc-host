@@ -61,6 +61,15 @@ module Plugin =
 
             CommonBuilder { state.State with options = options }
 
+        /// Defines is a content addressable cache is used: Default: false
+        [<CustomOperation("content_addressable_cache")>]
+        member _.ContentAddressableCache(state: CommonBuilder, contentAddressable: bool) =
+            let options =
+                { state.State.options with
+                    CacheIsolation = if contentAddressable then No else PerRootScript }
+
+            CommonBuilder { state.State with options = options }
+        
         /// Overrides the default root output dir path. Default: /tmp/.fsch
         [<CustomOperation("output_dir")>]
         member _.OutputDir(state: CommonBuilder, outputDir: string) =

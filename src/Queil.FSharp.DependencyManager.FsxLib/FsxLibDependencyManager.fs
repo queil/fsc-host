@@ -12,7 +12,7 @@ module Attributes =
     do ()
 
 [<DependencyManager>]
-type PaketDependencyManager(outputDirectory: string option, useResultsCache: bool) =
+type FsxLibDependencyManager(outputDirectory: string option, useResultsCache: bool) =
 
     let resultCache = ConcurrentDictionary<string, ResolveDependenciesResult>()
 
@@ -65,14 +65,17 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
             let mutable isCached = true
             let cacheKey = getCacheKey packageManagerTextLines tfm runtimeIdentifier
             let resolve () =
-
+                isCached <- false
+                printfn $"Resolving dependencies (cache key: {cacheKey})"
+                
                 printfn $"FSXLIB: script name - %s{scriptName}"
                 printfn $"FSXLIB: script dir - %s{scriptDir}"
                 printfn $"FSXLIB: %A{packageManagerTextLines}"
 
                 let resolutions =
                     packageManagerTextLines
-                    |> Seq.map (fun (_, v) ->
+                    |> Seq.toArray
+                    |> Array.Parallel.map (fun (_, v) ->
                         let scriptPath =
                             if Path.IsPathRooted v then
                                 v

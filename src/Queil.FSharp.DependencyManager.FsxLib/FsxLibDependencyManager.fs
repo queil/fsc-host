@@ -83,6 +83,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                             CompilerHost.getAssembly
                                 { Options.Default with
                                     UseCache = true
+                                    CacheIsolation = No
                                     Verbose = config.Verbose }
                                 (Queil.FSharp.FscHost.File(scriptPath))
                             |> Async.RunSynchronously

@@ -66,7 +66,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
             Logging.verboseWarnings <- config.Verbose
 
             use _ =
-                Paket.Logging.event.Publish
+                Logging.event.Publish
                 |> Observable.subscribe (fun (e: Logging.Trace) -> log e.Text)
 
             let getCacheKey (packageManagerTextLines: (string * string) seq) (tfm: string) (rid: string) =

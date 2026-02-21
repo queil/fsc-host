@@ -15,6 +15,8 @@ type FileHash =
     member x.HashedScriptVersionDir(rootDir: string) =
         Path.Combine(rootDir, x.PathHash, x.ContentHash)
 
+    member x.ContentHashedScriptDir(rootDir: string) = Path.Combine(rootDir, x.ContentHash)
+
 [<RequireQualifiedAccess>]
 module Hash =
     let private sha256Hasher = new ThreadLocal<SHA256>(fun () -> SHA256.Create())

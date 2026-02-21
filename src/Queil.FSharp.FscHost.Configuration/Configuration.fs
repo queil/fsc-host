@@ -1,6 +1,7 @@
 ﻿namespace Queil.FSharp.FscHost.Configuration
 
 open System
+open System.Collections.Concurrent
 open System.IO
 open System.Text.Json
 

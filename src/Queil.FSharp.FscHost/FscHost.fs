@@ -108,9 +108,12 @@ type ScriptContext =
       OutputVersionDir: string
       LockFilePath: string }
 
+type CacheIsolation = PerRootScript | No
+
 type Options =
     { Compiler: CompilerOptions
       UseCache: bool
+      CacheIsolation: CacheIsolation
       OutputDir: string
       Verbose: bool
       Logger: (string -> unit) option
@@ -120,6 +123,7 @@ type Options =
     static member Default =
         { Compiler = CompilerOptions.Default
           UseCache = false
+          CacheIsolation = PerRootScript
           OutputDir = Path.Combine(Path.GetTempPath(), Const.FschDir)
           Verbose = false
           Logger = None
@@ -133,7 +137,18 @@ module CompilerHost =
     module private Internals =
         let checker = FSharpChecker.Create(parallelReferenceResolution = true)
 
-        let ensureScriptFile (outputRootDir: string) (script: Script) =
+        let ensureScriptFile (outputRootDir: string) (isolation: CacheIsolation) (script: Script)  =
+            
+            let hashedOutputDir (hashes:FileHash) outputRootDir =
+                match isolation with
+                | PerRootScript -> hashes.HashedScriptDir outputRootDir
+                | No -> hashes.ContentHashedScriptDir outputRootDir
+
+            let hashedOutputVersionDir  (hashes:FileHash) outputRootDir =
+                match isolation with
+                | PerRootScript -> hashes.HashedScriptVersionDir outputRootDir
+                | No -> hashes.ContentHashedScriptDir outputRootDir
+            
             let getScriptFilePath =
                 function
                 | File path ->
@@ -149,8 +164,8 @@ module CompilerHost =
 
                     { FilePath = path
                       Dir = scriptDir
-                      OutputRootDir = hashes.HashedScriptDir outputRootDir
-                      OutputVersionDir = hashes.HashedScriptVersionDir outputRootDir
+                      OutputRootDir = hashedOutputDir hashes outputRootDir
+                      OutputVersionDir = hashedOutputVersionDir hashes outputRootDir
                       LockFilePath =
                         Path.Combine(Path.GetTempPath(), Const.FschDir, "lock", Hash.shortHash scriptDir + ".lock") }
 
@@ -162,8 +177,8 @@ module CompilerHost =
 
                     { FilePath = filePath
                       Dir = scriptDir
-                      OutputRootDir = hashes.HashedScriptDir outputRootDir
-                      OutputVersionDir = hashes.HashedScriptVersionDir outputRootDir
+                      OutputRootDir = hashedOutputDir hashes outputRootDir
+                      OutputVersionDir = hashedOutputVersionDir hashes outputRootDir
                       LockFilePath =
                         Path.Combine(Path.GetTempPath(), Const.FschDir, "lock", Hash.shortHash scriptDir + ".lock") }
 
@@ -295,7 +310,7 @@ module CompilerHost =
         let log = options.Logger |> Option.defaultValue ignore
 
         async {
-            let ctx = script |> ensureScriptFile options.OutputDir
+            let ctx = script |> ensureScriptFile options.OutputDir options.CacheIsolation
 
             log $"Root file path: %s{ctx.FilePath}"
             log $"Script dir: %s{ctx.Dir}"

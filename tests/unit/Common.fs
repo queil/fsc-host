@@ -15,6 +15,7 @@ module Common =
     let options =
         { Options.Default with
             UseCache = true
+            CacheIsolation = No
             OutputDir = "/tmp/.fsch-tests"
             Logger = Some(printfn "%s") }
 

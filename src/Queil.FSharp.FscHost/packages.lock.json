@@ -4,29 +4,29 @@
     "net10.0": {
       "FSharp.Compiler.Service": {
         "type": "Direct",
-        "requested": "[43.10.103, 43.10.103]",
-        "resolved": "43.10.103",
-        "contentHash": "wZQN77Sg2qJef5pOO/GVGjvi2MO0Z4tUyo/YUj4kqDLaJklhPeOtitMI7c+bvV2lG/EnP7GrfnxEwkdxlClVnw==",
+        "requested": "[43.10.102, 43.10.102]",
+        "resolved": "43.10.102",
+        "contentHash": "akU57VniV8pkBP3O1ygRl5jFXbFOrjBvt1Vwe5AA+/DuTjDB72RsUnq2E/HJjioNMk5+HoTBv35tWDQ9cyBDIA==",
         "dependencies": {
-          "FSharp.Core": "[10.0.103]"
+          "FSharp.Core": "[10.0.102]"
         }
       },
       "FSharp.Core": {
         "type": "Direct",
-        "requested": "[10.0.103, 10.0.103]",
-        "resolved": "10.0.103",
-        "contentHash": "GfQInb74eDh9JZ8wx4+t/lOrH1uRqZvneuViVJ8CwbQwmtyyZoeGuzRayL01MNAsm8B6eRenWwJThu01EFPeKg=="
+        "requested": "[10.0.102, 10.0.102]",
+        "resolved": "10.0.102",
+        "contentHash": "umz5pbtOvL/F9U5sibhREzZT2ewAs//nRTMwj8XcOOjMdOP828tipLpEhb2fZNijhiyikJ6Nr/dsMc/lj58W9w=="
       },
       "queil.fsharp.fschost.configuration": {
         "type": "Project",
         "dependencies": {
-          "FSharp.Core": "[10.0.103, 10.0.103]"
+          "FSharp.Core": "[10.0.102, 10.0.102]"
         }
       },
       "queil.fsharp.hashing": {
         "type": "Project",
         "dependencies": {
-          "FSharp.Core": "[10.0.103, 10.0.103]"
+          "FSharp.Core": "[10.0.102, 10.0.102]"
         }
       }
     },

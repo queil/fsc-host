@@ -67,7 +67,7 @@ module Configure =
 [<RequireQualifiedAccess>]
 module PaketPaths =
 
-    let internal mainGroupFile (tfm: string) (ext: string) = $"%s{tfm}/main.group.%s{ext}"
+    let internal mainGroupFile (tfm: string) (ext: string) = $"%s{tfm}%c{Path.DirectorySeparatorChar}main.group.%s{ext}"
 
     let internal loadingScriptsDir (dir: string) (tfm: string) (ext: string) =
         Path.Combine(dir, Constants.PaketFolderName, "load", mainGroupFile tfm ext)

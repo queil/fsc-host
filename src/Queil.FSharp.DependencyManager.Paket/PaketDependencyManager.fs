@@ -53,7 +53,11 @@ module Configure =
 
     let internal render key =
         if File.Exists key then
-            File.ReadAllText key
+
+            use fs = new FileStream(key, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+            use sr = new StreamReader(fs)
+
+            sr.ReadToEnd()
             |> JsonSerializer.Deserialize<Configuration>
             |> Option.ofObj
             |> _.Value

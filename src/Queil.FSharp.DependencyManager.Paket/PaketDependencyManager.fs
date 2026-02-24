@@ -196,7 +196,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                         match processed with
                         | [ "github"; path ] ->
                             let repo, ref = path.Split ":" |> fun x -> x[0].Replace("/", "__"), x[1]
-                            $"group gh_{repo}_{ref}\n  " :: processed @ [ "\n\ngroup Main" ]
+                            $"group gh_{repo}_{ref}{Environment.NewLine}  " :: processed @ [ $"{Environment.NewLine}{Environment.NewLine}group Main" ]
                         | s -> s
 
                     isolatedWithGroups |> String.concat " "

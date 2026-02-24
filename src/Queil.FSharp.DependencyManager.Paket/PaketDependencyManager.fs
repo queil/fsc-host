@@ -67,7 +67,8 @@ module Configure =
 [<RequireQualifiedAccess>]
 module PaketPaths =
 
-    let internal mainGroupFile (tfm: string) (ext: string) = $"%s{tfm}%c{Path.DirectorySeparatorChar}main.group.%s{ext}"
+    let internal mainGroupFile (tfm: string) (ext: string) =
+        $"%s{tfm}%c{Path.DirectorySeparatorChar}main.group.%s{ext}"
 
     let internal loadingScriptsDir (dir: string) (tfm: string) (ext: string) =
         Path.Combine(dir, Constants.PaketFolderName, "load", mainGroupFile tfm ext)
@@ -196,15 +197,25 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                         match processed with
                         | [ "github"; path ] ->
                             let repo, ref = path.Split ":" |> fun x -> x[0].Replace("/", "__"), x[1]
-                            $"group gh_{repo}_{ref}{Environment.NewLine}  " :: processed @ [ $"{Environment.NewLine}{Environment.NewLine}group Main" ]
+
+                            $"group gh_{repo}_{ref}{Environment.NewLine}  " :: processed
+                            @ [ $"{Environment.NewLine}{Environment.NewLine}group Main" ]
                         | s -> s
 
                     isolatedWithGroups |> String.concat " "
 
-                try
-                    let df = deps.GetDependenciesFile()
+                let df =
+                    try
+                        deps.GetDependenciesFile()
+                    with _ ->
+                        File.Delete deps.DependenciesFile
+                        log $"Deleted invalid file: %s{deps.DependenciesFile}"
+                        reraise ()
 
-                    let newLines =
+                let mutable newLines = [||]
+
+                try
+                    newLines <-
                         packageManagerTextLines
                         |> Seq.map (fun (_, s) -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
                         |> Seq.collect id
@@ -217,8 +228,8 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                     DependenciesFileParser.parseDependenciesFile "tmp" true newLines |> ignore
                     File.AppendAllLines(deps.DependenciesFile, newLines)
                 with _ ->
-                    File.Move(deps.DependenciesFile, $"%s{deps.DependenciesFile}.error")
-                    log $"Moved invalid file to %s{deps.DependenciesFile}.error"
+
+                    log $"Failed to parse new lines: %A{newLines}"
                     reraise ()
 
                 deps.Install false

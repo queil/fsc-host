@@ -217,8 +217,8 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                     DependenciesFileParser.parseDependenciesFile "tmp" true newLines |> ignore
                     File.AppendAllLines(deps.DependenciesFile, newLines)
                 with _ ->
-                    File.Delete deps.DependenciesFile
-                    log "Deleted invalid deps file"
+                    File.Move(deps.DependenciesFile, $"%s{deps.DependenciesFile}.error")
+                    log $"Moved invalid file to %s{deps.DependenciesFile}.error"
                     reraise ()
 
                 deps.Install false

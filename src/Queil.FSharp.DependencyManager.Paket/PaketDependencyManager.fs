@@ -217,7 +217,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                 try
                     newLines <-
                         packageManagerTextLines
-                        |> Seq.map (fun (_, s) -> s.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries))
+                        |> Seq.map (fun (_, s) -> s.Split([|"\r\n"; "\n"|], StringSplitOptions.RemoveEmptyEntries))
                         |> Seq.collect id
                         |> Seq.map _.Trim()
                         |> Seq.map preProcessGithub

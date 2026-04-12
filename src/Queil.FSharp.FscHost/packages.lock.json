@@ -4,18 +4,18 @@
     "net10.0": {
       "FSharp.Compiler.Service": {
         "type": "Direct",
-        "requested": "[43.10.102, 43.10.102]",
-        "resolved": "43.10.102",
-        "contentHash": "akU57VniV8pkBP3O1ygRl5jFXbFOrjBvt1Vwe5AA+/DuTjDB72RsUnq2E/HJjioNMk5+HoTBv35tWDQ9cyBDIA==",
+        "requested": "[43.12.201, 43.12.201]",
+        "resolved": "43.12.201",
+        "contentHash": "FkAR8qjDeOCPke7+JNKnrWrglmuM1CeSVyzfsgmRGZv4C1/VMWzDF5IweLRyN64s0HyHSq61d8JIfVNGyciwCA==",
         "dependencies": {
-          "FSharp.Core": "[10.0.102]"
+          "FSharp.Core": "[10.1.201]"
         }
       },
       "FSharp.Core": {
         "type": "Direct",
-        "requested": "[10.0.102, 10.0.102]",
-        "resolved": "10.0.102",
-        "contentHash": "umz5pbtOvL/F9U5sibhREzZT2ewAs//nRTMwj8XcOOjMdOP828tipLpEhb2fZNijhiyikJ6Nr/dsMc/lj58W9w=="
+        "requested": "[10.1.201, 10.1.201]",
+        "resolved": "10.1.201",
+        "contentHash": "s5w9LWYurZ9yZdIppoIaYLkRadyT5s3u0wbQCb0J4bQd3ubIlIWQ3Nd5+ll1y3pv5OnTS373dP8T1S/BP46QXg=="
       },
       "Chessie": {
         "type": "Transitive",
@@ -119,7 +119,7 @@
       "queil.fsharp.dependencymanager.paket": {
         "type": "Project",
         "dependencies": {
-          "FSharp.Core": "[10.0.102, 10.0.102]",
+          "FSharp.Core": "[10.1.201, 10.1.201]",
           "Paket.Core": "[10.3.1, 10.3.1]",
           "Queil.FSharp.Hashing": "[1.0.0, )"
         }
@@ -127,7 +127,7 @@
       "queil.fsharp.hashing": {
         "type": "Project",
         "dependencies": {
-          "FSharp.Core": "[10.0.102, 10.0.102]"
+          "FSharp.Core": "[10.1.201, 10.1.201]"
         }
       }
     },
@@ -181,41 +181,41 @@
       },
       "NuGet.Common": {
         "type": "Transitive",
-        "resolved": "7.0.1",
-        "contentHash": "AegMASeOhhm2flGk53b/YtINs2H+zKMnV5fTs3rRo08JMQ3gqrbJUSjiEMOKt5d541IhVA+pHDWVsDCZ+5g7Fg==",
+        "resolved": "7.3.0",
+        "contentHash": "y+7cQuzc6zePfo3GdueKgFAfE06pyNv1EGeordAMXotm6WEJw/m7UHv7GSLnib2HEPpzUk4Wvxgn9VgWkIe6Yw==",
         "dependencies": {
-          "NuGet.Frameworks": "7.0.1"
+          "NuGet.Frameworks": "7.3.0"
         }
       },
       "NuGet.Configuration": {
         "type": "Transitive",
-        "resolved": "7.0.1",
-        "contentHash": "En8aIvZywOmgi+Q2Tv7VUELSYc3OCTwmzItr2N3j5pVIBQE92HbOa1b4+fJJbl9X/rAOkNon3fxjwYeqrdMRrw==",
+        "resolved": "7.3.0",
+        "contentHash": "9qNpnZP73pfGm1MYET78OCW/HNnKNZpTfWPB2z/EyxQnfWtJBANeFyogX8s7S+oWMbR+EG2w6jbDVKdvVJfCXA==",
         "dependencies": {
-          "NuGet.Common": "7.0.1",
-          "System.Security.Cryptography.ProtectedData": "9.0.6"
+          "NuGet.Common": "7.3.0",
+          "System.Security.Cryptography.ProtectedData": "8.0.0"
         }
       },
       "NuGet.Frameworks": {
         "type": "Transitive",
-        "resolved": "7.0.1",
-        "contentHash": "dUDwg8VYTyT+ZbLdC7hUUHFF530HeRl4jcxclKJY0o96f3nv0eZvojXwjRkq2HKzuyRCcVD4T24aEF83CUmBzA=="
+        "resolved": "7.3.0",
+        "contentHash": "AnhSFUOrCrWp7pGtqhfOxa5HKm4rfpQxuatGDKzpGtTczasj6OcGVtB74PyqW7osdu9/BtkjnkAYvNk5iT82Gg=="
       },
       "NuGet.Packaging": {
         "type": "Transitive",
-        "resolved": "7.0.1",
-        "contentHash": "hpC6Fx5VlMa42cSZDQ10TKDFHLoMpa8NbDwYSnCiGd4IPiG9+5ywWuxHjVbYYA7/PmJry5hs1GyJjvHV8bQmLw==",
+        "resolved": "7.3.0",
+        "contentHash": "yvmJ8LUPUVMm2DAKSK3+QfJKoCxQR1NuyPYLHqFHb1zmUcGwq+IvSl/4JjUivJDztXnI9GSVlE/SjQLsRJPoYw==",
         "dependencies": {
           "Newtonsoft.Json": "13.0.3",
-          "NuGet.Configuration": "7.0.1",
-          "NuGet.Versioning": "7.0.1",
-          "System.Security.Cryptography.Pkcs": "9.0.6"
+          "NuGet.Configuration": "7.3.0",
+          "NuGet.Versioning": "7.3.0",
+          "System.Security.Cryptography.Pkcs": "8.0.1"
         }
       },
       "NuGet.Versioning": {
         "type": "Transitive",
-        "resolved": "7.0.1",
-        "contentHash": "tu68LnZqiLM/VyLQzPRqedopMi/M+5/6JqwB2Xkd0AWXRpUWewkVv77asVB7wgjMPVzQFK2sBy7AuxV49UzuvQ=="
+        "resolved": "7.3.0",
+        "contentHash": "iOQPAdnVgj2U+K3AcdGGGcdS1tWyh3nvr64eqTDFCsDuHySBXSHRhl7eR8hdc0BZHxDjacRstbuaJKCurt2oPw=="
       },
       "Paket.Core": {
         "type": "Transitive",
@@ -238,13 +238,13 @@
       },
       "System.Security.Cryptography.Pkcs": {
         "type": "Transitive",
-        "resolved": "9.0.6",
-        "contentHash": "Gny8p2mX0jc5rjh+PA4Gx5GG66sj2C+e+ro7+j/3IsKT/bmQ84tGRV+XKaG+5/CTCdwkSSKDWEQ1rJd0J5jE0Q=="
+        "resolved": "8.0.1",
+        "contentHash": "CoCRHFym33aUSf/NtWSVSZa99dkd0Hm7OCZUxORBjRB16LNhIEOf8THPqzIYlvKM0nNDAPTRBa1FxEECrgaxxA=="
       },
       "System.Security.Cryptography.ProtectedData": {
         "type": "Transitive",
-        "resolved": "9.0.6",
-        "contentHash": "yErfw/3pZkJE/VKza/Cm5idTpIKOy/vsmVi59Ta5SruPVtubzxb8CtnE8tyUpzs5pr0Y28GUFfSVzAhCLN3F/Q=="
+        "resolved": "8.0.0",
+        "contentHash": "+TUFINV2q2ifyXauQXRwy4CiBhqvDEDZeVJU7qfxya4aRYOKzVBpN+4acx25VcPB9ywUN6C0n8drWl110PhZEg=="
       },
       "queil.fsharp.dependencymanager.paket": {
         "type": "Project",

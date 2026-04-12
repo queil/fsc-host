@@ -1,5 +1,6 @@
 namespace Queil.FSharp.FscHost
 
+open NuGet.Configuration
 open Queil.FSharp.Hashing
 open System.Runtime.Loader
 open FSharp.Compiler.CodeAnalysis
@@ -183,6 +184,41 @@ module CompilerHost =
         let compileScript (rootFilePath: string) (metadata: ScriptCache) (options: Options) : Async<CompileOutput> =
             let log = options.Logger |> Option.defaultValue ignore
             let asmLoadContext = AssemblyLoadContext("script", true)
+
+            asmLoadContext.add_Resolving (fun ctx (name: AssemblyName) ->
+                if name.Name = "FSharp.Core" then
+                    let tfm = $"net{Environment.Version.Major}.{Environment.Version.Minor}"
+
+                    let nugetHome =
+                        let settings = Settings.LoadDefaultSettings(null)
+                        Path.Combine(SettingsUtility.GetGlobalPackagesFolder(settings), "fsharp.core")
+
+                    if Directory.Exists(nugetHome) then
+                        Directory.GetDirectories(nugetHome)
+                        |> Array.sortByDescending (fun d ->
+                            let v = Path.GetFileName(d).Split('.')
+
+                            match v with
+                            | [| a; b; c |] ->
+                                match Int32.TryParse(a), Int32.TryParse(b), Int32.TryParse(c) with
+                                | (true, a), (true, b), (true, c) -> (a, b, c)
+                                | _ -> (0, 0, 0)
+                            | _ -> (0, 0, 0))
+                        |> Array.tryHead
+                        |> Option.bind (fun dir ->
+                            let preferred = Path.Combine(dir, "lib", tfm, "FSharp.Core.dll")
+
+                            if File.Exists(preferred) then
+                                Some preferred
+                            else
+                                Directory.GetFiles(dir, "FSharp.Core.dll", SearchOption.AllDirectories)
+                                |> Array.tryHead)
+                        |> Option.map ctx.LoadFromAssemblyPath
+                        |> Option.defaultValue null
+                    else
+                        null
+                else
+                    null)
 
             let getCompileOutput dllPath =
                 { AssemblyFilePath = dllPath

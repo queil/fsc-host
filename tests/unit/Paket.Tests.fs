@@ -110,5 +110,34 @@ let paketTests =
 
               resultFunc ()
           }
+          
+          testAsync "Should resolve RID-specific runtime assets (Microsoft.Data.SqlClient)" {
+              let script =
+                  """
+                  #r "paket: nuget Microsoft.Data.SqlClient ~> 7.0"
+
+                  namespace Script
+
+                  module X =
+
+                      open Microsoft.Data.SqlClient
+
+                      let x () =
+                          // Throws PlatformNotSupportedException on non-Windows if the
+                          // lib/<tfm>/ assembly was loaded instead of runtimes/<rid>/lib/<tfm>/
+                          use _ = new SqlConnection("Server=.;Database=x;Integrated Security=true")
+                          ()
+                  """
+
+              let! resultFunc =
+                  Common.invoke
+                  <| fun () ->
+                      Inline script
+                      |> CompilerHost.getMember
+                          { options with UseCache = false; Verbose=true }
+                          (Member<unit -> unit>.Path "Script.X.x")
+
+              resultFunc ()
+          }
 
           ]

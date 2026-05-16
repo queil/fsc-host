@@ -217,7 +217,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                 try
                     newLines <-
                         packageManagerTextLines
-                        |> Seq.map (fun (_, s) -> s.Split([|"\r\n"; "\n"|], StringSplitOptions.RemoveEmptyEntries))
+                        |> Seq.map (fun (_, s) -> s.Split([| "\r\n"; "\n" |], StringSplitOptions.RemoveEmptyEntries))
                         |> Seq.collect id
                         |> Seq.map _.Trim()
                         |> Seq.map preProcessGithub
@@ -243,7 +243,106 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
 
                 data.Save(DirectoryInfo workDir)
 
+                let rewriteRuntimeRefs (scriptPath: string) (rid: string) (log: string -> unit) =
+                    // RID fallback chain: linux-x64 -> linux -> unix; osx-arm64 -> osx -> unix; win-x64 -> win
+                    let ridChain =
+                        let rec expand (r: string) =
+                            seq {
+                                yield r
+                                let i = r.LastIndexOf('-')
+
+                                if i > 0 then
+                                    yield! expand (r.Substring(0, i))
+                            }
+
+                        seq {
+                            yield! expand rid
+
+                            if rid.StartsWith("linux") || rid.StartsWith("osx") || rid.StartsWith("freebsd") then
+                                yield "unix"
+                        }
+                        |> Seq.distinct
+                        |> Seq.toList
+
+                    // matches:  #r @"<path>/lib/<tfm>/<dll>"
+                    // also handles plain (non-verbatim) #r "..."  and Windows backslashes
+                    let sep = @"[/\\]"
+
+                    let pattern =
+                        $@"^(\s*#r\s+@?"")(?<root>.+?){sep}lib{sep}(?<tfm>[^/\\]+){sep}(?<dll>[^/\\""]+\.dll)(""\s*)$"
+
+                    let rx =
+                        System.Text.RegularExpressions.Regex(
+                            pattern,
+                            System.Text.RegularExpressions.RegexOptions.Compiled
+                        )
+
+                    let tryPickTfm (ridDir: string) (preferredTfm: string) =
+                        if not (Directory.Exists ridDir) then
+                            None
+                        else
+                            // prefer exact TFM match, then highest net*, then netstandard2.1, then netstandard2.0
+                            let tfms =
+                                Directory.GetDirectories ridDir
+                                |> Array.map (Path.GetFileName >> Option.ofObj)
+                                |> Array.choose id
+
+                            let rank (t: string) =
+                                if t = preferredTfm then
+                                    1000
+                                elif
+                                    t.StartsWith "net"
+                                    && not (t.StartsWith "netstandard")
+                                    && not (t.StartsWith "netcoreapp")
+                                then
+                                    // net9.0 -> 900, net10.0 -> 1000... good enough
+                                    match Double.TryParse(t.Substring 3) with
+                                    | true, v -> int (v * 100.0)
+                                    | _ -> 0
+                                elif t = "netstandard2.1" then
+                                    10
+                                elif t = "netstandard2.0" then
+                                    5
+                                else
+                                    0
+
+                            tfms |> Array.sortByDescending rank |> Array.tryHead
+
+                    let rewriteLine (line: string) =
+                        let m = rx.Match line
+
+                        if not m.Success then
+                            line
+                        else
+                            let root = m.Groups["root"].Value
+                            let tfm = m.Groups["tfm"].Value
+                            let dll = m.Groups["dll"].Value
+                            
+                            let candidate =
+                                ridChain
+                                |> List.tryPick (fun r ->
+                                    let ridLibRoot = Path.Combine(root, "runtimes", r, "lib")
+
+                                    tryPickTfm ridLibRoot tfm
+                                    |> Option.map (fun chosenTfm -> Path.Combine(ridLibRoot, chosenTfm, dll))
+                                    |> Option.filter File.Exists)
+
+                            match candidate with
+                            | Some p ->
+                                log $"rewrite: {dll} -> runtimes/.../{Path.GetFileName(Path.GetDirectoryName p)}"
+                                $"#r \"{p}\""
+                            | None -> line
+
+                    let lines = File.ReadAllLines scriptPath
+                    let rewritten = lines |> Array.map rewriteLine
+
+                    if rewritten <> lines then
+                        File.WriteAllLines(scriptPath, rewritten)
+
+
                 let loadingScriptsFilePath = PaketPaths.loadingScriptsDir workDir tfm scriptExt
+
+                rewriteRuntimeRefs loadingScriptsFilePath runtimeIdentifier log
 
                 let paketFilesDir = Path.Combine(workDir, Constants.PaketFilesFolderName)
 

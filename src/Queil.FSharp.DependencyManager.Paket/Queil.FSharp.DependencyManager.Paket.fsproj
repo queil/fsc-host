@@ -26,6 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="Rids.fs" />
     <Compile Include="PaketDependencyManager.fs" />
   </ItemGroup>
 

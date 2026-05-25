@@ -70,8 +70,40 @@ module PaketPaths =
     let internal mainGroupFile (tfm: string) (ext: string) =
         $"%s{tfm}%c{Path.DirectorySeparatorChar}main.group.%s{ext}"
 
+    let internal groupFile (tfm: string) (ext: string) (groupName: string) =
+        $"%s{tfm}%c{Path.DirectorySeparatorChar}{groupName.ToLowerInvariant()}.group.%s{ext}"
+
     let internal loadingScriptsDir (dir: string) (tfm: string) (ext: string) =
         Path.Combine(dir, Constants.PaketFolderName, "load", mainGroupFile tfm ext)
+
+    let internal loadingScriptsDirForGroup (dir: string) (tfm: string) (ext: string) (groupName: string) =
+        Path.Combine(dir, Constants.PaketFolderName, "load", groupFile tfm ext groupName)
+
+module internal ScriptGrouping =
+
+    let scriptGroupName (script: string) =
+        let name =
+            (Path.GetFileNameWithoutExtension(script) |> Option.ofObj |> Option.defaultValue "")
+                .Replace(".", "_")
+                .Replace("-", "_")
+        let dirHash = Hash.shortHash (Path.GetDirectoryName(script) |> Option.ofObj |> Option.defaultValue "")
+        $"{name}_{dirHash}"
+
+    let groupLines
+        (log: string -> unit)
+        (packageManagerTextLines: (string * string) seq)
+        (preProcess: string -> string)
+        =
+        packageManagerTextLines
+        |> Seq.map (fun (script, s) ->
+            script,
+            s.Split([| "\r\n"; "\n" |], StringSplitOptions.RemoveEmptyEntries)
+            |> Array.map _.Trim()
+            |> Array.map preProcess)
+        |> Seq.groupBy fst
+        |> Seq.map (fun (script, lines) ->
+            script, lines |> Seq.collect snd |> Seq.distinct |> Seq.toArray)
+        |> Seq.toArray
 
 
 // outputDirectory not really useful as it comes empty on GetProjectOptionsFromScript
@@ -212,43 +244,84 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                         log $"Deleted invalid file: %s{deps.DependenciesFile}"
                         reraise ()
 
-                let mutable newLines = [||]
+                let grouped = ScriptGrouping.groupLines log packageManagerTextLines preProcessGithub
 
-                try
-                    newLines <-
-                        packageManagerTextLines
-                        |> Seq.map (fun (_, s) -> s.Split([| "\r\n"; "\n" |], StringSplitOptions.RemoveEmptyEntries))
-                        |> Seq.collect id
-                        |> Seq.map _.Trim()
-                        |> Seq.map preProcessGithub
-                        |> Seq.distinct
-                        |> Seq.filter (fun s -> df.Lines |> Seq.contains s |> not)
-                        |> Seq.toArray
+                let scriptGroups =
+                    match grouped with
+                    | [| (_, lines) |] ->
+                        let newLines =
+                            lines |> Array.filter (fun s -> df.Lines |> Seq.contains s |> not)
+                        try
+                            DependenciesFileParser.parseDependenciesFile "tmp" true newLines |> ignore
+                            File.AppendAllLines(deps.DependenciesFile, newLines)
+                        with _ ->
+                            log $"Failed to parse new lines: %A{newLines}"
+                            reraise ()
+                        [| "Main" |]
+                    | multiple ->
+                        let allNewLines = ResizeArray<string>()
+                        let groupNames = ResizeArray<string>()
+                        for script, lines in multiple do
+                            let groupName = ScriptGrouping.scriptGroupName script
+                            groupNames.Add groupName
+                            log $"Creating group '{groupName}' for script '{script}'"
 
-                    DependenciesFileParser.parseDependenciesFile "tmp" true newLines |> ignore
-                    File.AppendAllLines(deps.DependenciesFile, newLines)
-                with _ ->
+                            let githubLines, nugetLines =
+                                lines |> Array.partition _.Contains("group gh_")
 
-                    log $"Failed to parse new lines: %A{newLines}"
-                    reraise ()
+                            allNewLines.Add $"group {groupName}"
+                            allNewLines.Add "    source https://api.nuget.org/v3/index.json"
+                            for line in nugetLines do
+                                if line.StartsWith("nuget ") then
+                                    allNewLines.Add $"    {line}"
+                                else
+                                    allNewLines.Add line
+                            allNewLines.Add ""
+
+                            for line in githubLines do
+                                allNewLines.Add line
+
+                        let newLines =
+                            allNewLines.ToArray()
+                            |> Array.filter (fun s -> df.Lines |> Seq.contains s |> not)
+                        try
+                            DependenciesFileParser.parseDependenciesFile "tmp" true newLines |> ignore
+                            File.AppendAllLines(deps.DependenciesFile, newLines)
+                        with _ ->
+                            log $"Failed to parse new lines: %A{newLines}"
+                            reraise ()
+                        groupNames.ToArray()
 
                 deps.Install false
 
-                let expectedPartialPath = PaketPaths.mainGroupFile tfm scriptExt
+                let loadingScriptsPaths =
+                    scriptGroups
+                    |> Array.map (fun groupName ->
+                        let partialPath =
+                            if groupName = "Main" then
+                                PaketPaths.mainGroupFile tfm scriptExt
+                            else
+                                PaketPaths.groupFile tfm scriptExt groupName
 
-                let data =
-                    deps.GenerateLoadScriptData deps.DependenciesFile [] [ tfm ] [ scriptExt ]
-                    |> Seq.filter (fun d -> d.PartialPath = expectedPartialPath)
-                    |> Seq.head
+                        let data =
+                            deps.GenerateLoadScriptData deps.DependenciesFile [] [ tfm ] [ scriptExt ]
+                            |> Seq.filter (fun d -> d.PartialPath = partialPath)
+                            |> Seq.tryHead
 
-                data.Save(DirectoryInfo workDir)
-
-
-
-
-                let loadingScriptsFilePath = PaketPaths.loadingScriptsDir workDir tfm scriptExt
-
-                Rids.rewriteRuntimeRefs loadingScriptsFilePath runtimeIdentifier log
+                        match data with
+                        | Some d ->
+                            d.Save(DirectoryInfo workDir)
+                            let path =
+                                if groupName = "Main" then
+                                    PaketPaths.loadingScriptsDir workDir tfm scriptExt
+                                else
+                                    PaketPaths.loadingScriptsDirForGroup workDir tfm scriptExt groupName
+                            Rids.rewriteRuntimeRefs path runtimeIdentifier log
+                            Some path
+                        | None ->
+                            log $"No load script generated for group '{groupName}'"
+                            None)
+                    |> Array.choose id
 
                 let paketFilesDir = Path.Combine(workDir, Constants.PaketFilesFolderName)
 
@@ -259,7 +332,7 @@ type PaketDependencyManager(outputDirectory: string option, useResultsCache: boo
                           |> Seq.filter ((<>) (GroupName "Main"))
                           |> Seq.map (fun g -> Path.Combine(paketFilesDir, g.Name)) ]
 
-                ResolveDependenciesResult(true, [||], [||], [], [ loadingScriptsFilePath ], roots)
+                ResolveDependenciesResult(true, [||], [||], [], loadingScriptsPaths, roots)
 
             let resolveResult =
                 if not useResultsCache then

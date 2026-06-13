@@ -954,7 +954,7 @@
       "queil.fsharp.hashing": {
         "type": "Project",
         "dependencies": {
-          "FSharp.Core": "[10.1.203, )"
+          "FSharp.Core": "[10.1.204, )"
         }
       }
     }
